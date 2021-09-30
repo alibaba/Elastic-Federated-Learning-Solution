@@ -1,0 +1,115 @@
+.title_before::before {
+  display: inline-block;
+  width: 3px;
+  height: 24px;
+  margin-right: 5px;
+  font-weight: 700;
+  vertical-align: sub;
+  background-color: #1890ff;
+  border-radius: 2px;
+  content: '';
+}
+
+@media screen and (min-width: 1920px) and (max-width: 2560px) {
+  --cols: 5;
+}
+
+.mainDiv {
+  height: calc(~'100vh - 150px');
+  padding: 12px 16px 12px 16px;
+  overflow: auto;
+  background-color: #fff;
+  .newAppCard {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    .newIcon {
+
+      font-size: 60px;
+      color:rgba(31,56,88,0.4);
+    }
+    .newText {
+      color:rgba(31,56,88,0.4); 
+    }
+  }
+
+  .projectDiv {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .project_container {
+    .card_footer {
+      color: #5e6877;
+      font-size: 12px;
+      line-height: 32px;
+    }
+    .card_body {
+      display: flex;
+      .card_div {
+        display: flex;
+        flex-direction: column;
+        height: 100px;
+        .card_span {
+          color: #5e6877;
+          font-size: 13px;
+        }
+        .card_badge {
+          align-items: center;
+          margin-top: 10px;
+        }
+      }
+    }
+  }
+}
+
+:global {
+  .ant-card-head {
+    // height: 40px !important;
+    min-height: 40px !important;
+    .ant-card-head-title {
+      height: 40px;
+      padding: 0px;
+      line-height: 40px;
+    }
+    .ant-card-extra {
+      padding: 0px;
+    }
+  }
+  .ant-statistic-title {
+    color: #5e6877;
+    font-size: 13px;
+  }
+  .ant-badge-status-text {
+    color: #5e6877;
+  }
+  .ant-btn-text:hover {
+    background: #e2e2e2d9;
+    border-radius: 50%;
+  }
+}
+
+.project_add {
+  height: calc(~'100vh - 150px');
+  margin-top: 10px;
+  padding: 12px 16px 12px 16px;
+  overflow: auto;
+  background-color: #fff;
+  .h4_before::before {
+    display: inline-block;
+    width: 3px;
+    height: 16px;
+    margin-right: 5px;
+    font-weight: 700;
+    vertical-align: text-bottom;
+    background-color: #1890ff;
+    border-radius: 2px;
+    content: '';
+  }
+  :global {
+    .ant-form-item-label > label {
+      font-size: 12px;
+    }
+  }
+}

@@ -1,0 +1,218 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      name: mysql
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: main
+          image: mysql:8
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: Ali-fl
+            - name: MYSQL_DATABASE
+              value: alifl
+          ports:
+            - name: mysql
+              containerPort: 3306
+          readinessProbe:
+            exec:
+              command: [ "mysql", "-uroot", "-pAli-fl", "-e", "SELECT 1" ]
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  labels:
+    app: minio
+    release: minio
+  name: minio
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  storageClassName: local-storage
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /mnt
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          # node name, update it using local k8s params
+          - {$nodeName}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  # This name uniquely identifies the PVC. Will be used in deployment below.
+  name: minio-pvc-local
+  labels:
+    app: minio-storage-claim
+spec:
+  # Read more about access modes here: https://kubernetes.io/docs/user-guide/persistent-volumes/#access-modes
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    # This is the request for storage. Should be available in the cluster.
+    requests:
+      storage: 10Gi
+  storageClassName: local-storage
+  # Uncomment and add storageClass specific to your requirements below. Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+  #storageClassName:
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # This name uniquely identifies the Deployment
+  name: minio-local-deployment
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        # Label is used as selector in the service.
+        app: minio
+    spec:
+      # Refer to the PVC created earlier
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          # Name of the PVC created earlier
+          claimName: minio-pvc-local
+      containers:
+      - name: minio
+        # Pulls the default MinIO image from Docker Hub
+        image: minio/minio
+        args:
+        - server
+        - /storage
+        env:
+        # MinIO access key and secret key
+        - name: MINIO_ACCESS_KEY
+          value: "alifl"
+        - name: MINIO_SECRET_KEY
+          value: "aliflminio"
+        ports:
+        - containerPort: 9000
+        # Mount the volume into the pod
+        volumeMounts:
+        - name: storage # must match the volume name, above
+          mountPath: "/storage"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+spec:
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+  selector:
+    app: minio
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alifl-console-host
+  labels:
+    app: alifl-console-host
+spec:
+  selector:
+    app: alifl-console-host
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alifl-console-host
+  labels:
+    app: alifl-console-host
+spec:
+  selector:
+    matchLabels:
+      app: alifl-console-host
+  template:
+    metadata:
+      name: alifl-console-host
+      labels:
+        app: alifl-console-host
+    spec:
+      volumes:
+        - name: nas-pv-storage
+          persistentVolumeClaim:
+            claimName: nas-pvc
+      containers:
+        - name: main
+          image: registry.cn-hangzhou.aliyuncs.com/fedlearn/console-host:v1
+          imagePullPolicy: Always
+          env:
+            - name: ENV
+              value: default_local
+            - name: STATIC
+              value: host
+            - name: BASE-URL
+              value: http://xxx/host
+          ports:
+            - containerPort: 5000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            timeoutSeconds: 30
+          volumeMounts:
+            - name: nas-pv-storage
+              mountPath: /data
+      imagePullSecrets:
+        - name: ali-docker-secret
+      nodeSelector:
+        kubernetes.io/os: linux

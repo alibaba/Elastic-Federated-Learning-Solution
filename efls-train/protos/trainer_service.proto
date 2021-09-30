@@ -1,0 +1,49 @@
+syntax = "proto3";
+import "tensorflow/core/lib/core/error_codes.proto";
+import "tensorflow/core/framework/tensor.proto";
+
+package efl;
+
+message ConnectionRequest {
+}
+
+message ConnectionResponse {
+}
+
+message MessageRequest {
+  string name = 1;
+  uint64 step = 2;
+  tensorflow.TensorProto tensor = 3;
+}
+
+message MessageResponse {
+  tensorflow.error.Code code = 1;
+  string msg = 2;
+}
+
+message GetReaderStateRequest {
+  string name = 1;
+}
+
+message GetReaderStateResponse {
+  tensorflow.error.Code code = 1;
+  string msg = 2;
+  string block_id = 3;
+  int64 offset = 4;
+}
+
+message GetCheckpointVersionRequest {
+}
+
+message GetCheckpointVersionResponse {
+  tensorflow.error.Code code = 1;
+  string msg = 2;
+  string version = 3;
+}
+
+service TrainerService {
+  rpc SendMessage (MessageRequest) returns (MessageResponse) {}
+  rpc GetReaderState (GetReaderStateRequest) returns (GetReaderStateResponse) {}
+  rpc GetCheckpointVersion (GetCheckpointVersionRequest) returns (GetCheckpointVersionResponse) {}
+  rpc Connect (ConnectionRequest) returns (ConnectionResponse) {}
+}

@@ -1,0 +1,12 @@
+alembic==1.6.5
+argo-workflows==5.0.0
+cryptography==3.4.7
+flask==2.0.1
+flask-cors==3.0.10
+flask-sqlalchemy==2.5.1
+gunicorn==20.1.0
+kfp==1.7.1
+minio==7.1.0
+pymysql==1.0.2
+requests==2.26.0
+kubernetes==12.0.1

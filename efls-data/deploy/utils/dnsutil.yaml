@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dnsutils
+  namespace: default
+  labels:
+    app: xfl-utils
+spec:
+  containers:
+  - name: dnsutils
+    image: ethnchao/kubernetes-e2e-test-images-dnsutils:1.1 
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+  restartPolicy: Always

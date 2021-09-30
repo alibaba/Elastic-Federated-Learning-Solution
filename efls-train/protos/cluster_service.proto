@@ -1,0 +1,32 @@
+syntax = "proto3";
+import "tensorflow/core/lib/core/error_codes.proto";
+import "tensorflow/core/protobuf/cluster.proto";
+
+package efl;
+
+message RegisterNodeRequest {
+  string task_name = 1;
+  int32 task_index = 2;   
+  string addr = 3;
+  int64 version = 4;
+}
+
+message RegisterNodeResponse {
+  tensorflow.error.Code code = 1;
+  string error_msg = 2;
+  int64 version = 3;
+}
+
+message GetClusterRequest {
+}
+
+message GetClusterResponse {
+  tensorflow.error.Code code = 1;
+  string error_msg = 2;
+  tensorflow.ClusterDef cluster = 3;
+}
+
+service ClusterService {
+  rpc RegisterNode (RegisterNodeRequest) returns (RegisterNodeResponse) {}
+  rpc GetCluster (GetClusterRequest) returns (GetClusterResponse) {}
+}

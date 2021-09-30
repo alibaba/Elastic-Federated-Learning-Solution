@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqlpeer
+  labels:
+    app: mysqlpeer
+spec:
+  selector:
+    app: mysqlpeer
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysqlpeer
+  labels:
+    app: mysqlpeer
+spec:
+  selector:
+    matchLabels:
+      app: mysqlpeer
+  template:
+    metadata:
+      name: mysqlpeer
+      labels:
+        app: mysqlpeer
+    spec:
+      containers:
+        - name: main
+          image: mysql:8
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: Ali-fl
+            - name: MYSQL_DATABASE
+              value: alifl
+          ports:
+            - name: mysqlpeer
+              containerPort: 3306
+          readinessProbe:
+            exec:
+              command: [ "mysql", "-uroot", "-pAli-fl", "-e", "SELECT 1" ]
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alifl-console-peer
+  labels:
+    app: alifl-console-peer
+spec:
+  selector:
+    app: alifl-console-peer
+  ports:
+    - protocol: TCP
+      port: 5001
+      targetPort: 5001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alifl-console-peer
+  labels:
+    app: alifl-console-peer
+spec:
+  selector:
+    matchLabels:
+      app: alifl-console-peer
+  template:
+    metadata:
+      name: alifl-console-peer
+      labels:
+        app: alifl-console-peer
+
+    spec:
+      volumes:
+        - name: nas-pv-storage
+          persistentVolumeClaim:
+            claimName: nas-pvc
+      containers:
+        - name: main
+          image: registry.cn-hangzhou.aliyuncs.com/fedlearn/console-peer:v1
+          imagePullPolicy: Always
+          env:
+            - name: ENV
+              value: default_peer
+            - name: STATIC
+              value: peer
+            - name: BASE-URL
+              value: http://xxx/peer
+          ports:
+            - containerPort: 5001
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 5
+            timeoutSeconds: 30
+          volumeMounts:
+            - name: nas-pv-storage
+              mountPath: /data
+      imagePullSecrets:
+        - name: ali-docker-secret
+      nodeSelector:
+        kubernetes.io/os: linux

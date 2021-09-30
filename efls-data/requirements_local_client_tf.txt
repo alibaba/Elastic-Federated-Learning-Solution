@@ -1,0 +1,7 @@
+tensorflow==1.14.0
+numpy==1.16.4
+grpcio-tools
+mmh3~=3.0.0
+etcd3
+crc32c
+cardinality

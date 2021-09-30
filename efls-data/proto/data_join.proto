@@ -1,0 +1,74 @@
+/* Copyright 2021 Alibaba Group Holding Limited. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+syntax = "proto3";
+import "proto/common.proto";
+import "google/protobuf/empty.proto";
+
+package xfl;
+
+message JoinRequest {
+  repeated bytes ids = 1;
+  int64 bucket_id = 2;
+}
+
+message AsyncJoinRequest {
+  repeated bytes ids = 1;
+  int64 bucket_id = 2;
+  int64 batch_idx = 3;
+  int64 total_batch_num = 4;
+}
+message FinishJoinRequest {
+  int64 bucket_id = 1;
+  int64 check_sum = 2;
+}
+
+message BucketIdRequest {
+  int64 bucket_id = 1;
+}
+
+message JoinResponse {
+  Status status = 1;
+  repeated bool join_res = 2;
+}
+
+message BloomFilter {
+  Status status = 1;
+  bytes object = 2;
+}
+
+service DataJoinService {
+  rpc IsReady(BucketIdRequest) returns (Status) {}
+  rpc FinishJoin(FinishJoinRequest) returns (Status) {}
+  rpc SyncJoin(JoinRequest) returns (JoinResponse) {}
+  rpc AsyncJoin(AsyncJoinRequest) returns (JoinResponse) {}
+  rpc GetBloomFilter(BucketIdRequest) returns (BloomFilter) {}
+  rpc GetRsaPublicKey(google.protobuf.Empty) returns (RsaKey) {}
+  rpc PsiSign(PsiSignRequest) returns (PsiSignResponse) {}
+}
+
+message RsaKey {
+  Status status = 1;
+  bytes key = 2;
+}
+
+message PsiSignRequest {
+  repeated bytes ids = 1;
+}
+
+message PsiSignResponse {
+  Status status = 1;
+  repeated bytes signed_ids = 2;
+}
