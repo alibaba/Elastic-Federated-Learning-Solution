@@ -11,14 +11,14 @@ _**The Discrete Gaussian for Differential Privacy**_([https://arxiv.org/abs/2004
 
 | **差分隐私随机梯度下降算法** |
 | --- |
-| **输入：**训练样本![](https://latex.codecogs.com/svg.latex?\%5C%7Bx_1%2C%5Cdots%2Cx_N%5C%7D)，micro-batch大小![](https://latex.codecogs.com/svg.latex?\L)，mini-batch大小![](https://latex.codecogs.com/svg.latex?\M)，学习率![](https://latex.codecogs.com/svg.latex?\\eta_t)，训练步数![](https://latex.codecogs.com/svg.latex?\T)<br />         高斯噪声标准差因子![](https://latex.codecogs.com/svg.latex?\sigma)，梯度剪切阈值![](https://latex.codecogs.com/svg.latex?\C)，损失函数![](https://latex.codecogs.com/svg.latex?\\mathcal%20L(\\pmb\\theta,%20X))​ |
-| **输出：**模型参数![](https://latex.codecogs.com/svg.image?%5Cpmb%5Ctheta_T)​ |
+| **输入：** 训练样本![](https://latex.codecogs.com/svg.latex?\%5C%7Bx_1%2C%5Cdots%2Cx_N%5C%7D)，micro-batch大小L，mini-batch大小M，学习率![](https://latex.codecogs.com/svg.latex?\\eta_t)，训练步数T<br />         高斯噪声标准差因子![](https://latex.codecogs.com/svg.latex?\sigma)，梯度剪切阈值C，损失函数![](https://latex.codecogs.com/svg.latex?\\mathcal%20L(\\pmb\\theta,%20X))​ |
+| **输出：** 模型参数![](https://latex.codecogs.com/svg.image?%5Cpmb%5Ctheta_T)​ |
 **算法流程：**<br />
 1. 初始化模型参数为![](https://latex.codecogs.com/svg.latex?\\pmb\\theta_0)<br />
 2. ![](https://latex.codecogs.com/svg.image?for\\&space;\\&space;t\\in[T]\\&space;\\&space;do)<br />
-   1. 随机抽取![](https://latex.codecogs.com/svg.latex?\L)个样本，称为一个micro-batch<br />
-   2. 将一个micro-batch分成若干个mini-batch，每个mini-batch包含![](https://latex.codecogs.com/svg.latex?\M)个样本<br />
-   3. 计算每个mini-batch的梯度![](https://latex.codecogs.com/svg.image?\\pmb&space;g_t(X_i)=\\nabla_{\\pmb\\theta_t}\\mathcal&space;L(\\pmb\\theta_t,X_i))<br />
+   1. 随机抽取M个样本，称为一个mini-batch<br />
+   2. 将一个mini-batch分成若干个micro-batch，每个micro-batch包含L个样本<br />
+   3. 计算每个micro-batch的梯度![](https://latex.codecogs.com/svg.image?\\pmb&space;g_t(X_i)=\\nabla_{\\pmb\\theta_t}\\mathcal&space;L(\\pmb\\theta_t,X_i))<br />
    4. 梯度剪切![](https://latex.codecogs.com/svg.image?%5Cbar%7B%5Cpmb%20g%7D_t(X_i)=%5Cpmb%20g_t(X_i)/%5Cmax(1,%5Cfrac%7B%5C%7Cg_t(X_i)%5C%7C_2%7DC))<br />
    5. 梯度加噪![](https://latex.codecogs.com/svg.image?\\hat{\\pmb&space;g}_t(X_i)=\\bar{\\pmb&space;g}_t(X_i)&plus;\\mathcal&space;N(0,&space;\sigma^2C^2))<br />
    6. 梯度求均值![](https://latex.codecogs.com/svg.image?%5Ctilde%7B%5Cpmb%20g%7D_t=%5Csum_i%5Chat%7B%5Cpmb%20g%7D_t(X_i))<br />
