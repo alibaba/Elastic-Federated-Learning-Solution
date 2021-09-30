@@ -1,7 +1,4 @@
-<div align=center>
-    <img src="docs/logo.png" width="400">
-</div>
-[English](./README.md) | 简体中文 
+[English](./README.md) | 简体中文
 
 # 联邦学习解决方案
 
