@@ -22,7 +22,9 @@ efl.framework.task_scope.TaskScope(
 # task_scope
 
 ```python
-efl.task_scope(mode=None, task=None)
+efl.task_scope(
+    mode=None, task=None
+)
 ```
 
 | **参数​**                                      |            |                                                           |
@@ -131,7 +133,9 @@ get_extra_data(
 ### add_train_op
 
 ```python
-add_train_op(    train_op, task=None)
+add_train_op(
+    train_op, task=None
+)
 ```
 
 | **参数​**         |          |                                        |
@@ -144,7 +148,9 @@ add_train_op(    train_op, task=None)
 ### add_eval_op
 
 ```python
-add_eval_op(    eval_op, task=None)
+add_eval_op(
+    eval_op, task=None
+)
 ```
 
 | **参数​**         |          |                                        |
@@ -157,7 +163,9 @@ add_eval_op(    eval_op, task=None)
 ### loss
 
 ```python
-loss(    task=None)
+loss(
+    task=None
+)
 ```
 
 | **参数​**         |          |                                         |
@@ -169,7 +177,9 @@ loss(    task=None)
 ### train_op
 
 ```python
-train_op(    task=None)
+train_op(
+    task=None
+)
 ```
 
 | **参数​**         |          |                                        |
@@ -181,7 +191,9 @@ train_op(    task=None)
 ### eval_op
 
 ```python
-eval_op(    task=None)
+eval_op(
+    task=None
+)
 ```
 
 | **参数​**         |          |                                        |
@@ -193,7 +205,9 @@ eval_op(    task=None)
 ### opt_to_vars
 
 ```python
-opt_to_vars(    task=None)
+opt_to_vars(
+    task=None
+)
 ```
 
 | **参数​**         |          |                                                              |
@@ -205,7 +219,9 @@ opt_to_vars(    task=None)
 ### add_hooks
 
 ```python
-add_hooks(    hooks, mode=MODE.TRAIN, task=None)
+add_hooks(
+    hooks, mode=MODE.TRAIN, task=None
+)
 ```
 
 | **参数​**         |            |                                                              |
@@ -219,7 +235,9 @@ add_hooks(    hooks, mode=MODE.TRAIN, task=None)
 ### add_metric
 
 ```python
-add_metric(    name, metric, mode=MODE.TRAIN, task=None)
+add_metric(
+    name, metric, mode=MODE.TRAIN, task=None
+)
 ```
 
 | **参数​**         |            |                                                              |
@@ -234,7 +252,9 @@ add_metric(    name, metric, mode=MODE.TRAIN, task=None)
 ### input_fn
 
 ```python
-input_fn(    input_fn, task=None)
+input_fn(    
+    input_fn, task=None
+)
 ```
 
 | **参数​**         |            |                                                              |
@@ -247,7 +267,9 @@ input_fn(    input_fn, task=None)
 ### loss_fn
 
 ```python
-loss_fn(    loss_fn, task=None)
+loss_fn(    
+    loss_fn, task=None
+)
 ```
 
 | **参数​**         |            |                                                              |
@@ -260,7 +282,9 @@ loss_fn(    loss_fn, task=None)
 ### optimizer_fn
 
 ```python
-optimizer_fn(    optimizer_fn, task=None)
+optimizer_fn(    
+    optimizer_fn, task=None
+)
 ```
 
 | **参数​**         |            |                                                              |
@@ -273,7 +297,9 @@ optimizer_fn(    optimizer_fn, task=None)
 ### eval_fn
 
 ```python
-eval_fn(    eval_fn, task=None)
+eval_fn(
+    eval_fn, task=None
+)
 ```
 
 | **参数​**         |            |                                                              |
@@ -288,7 +314,9 @@ eval_fn(    eval_fn, task=None)
 我们将模型的整个训练过程抽象为一个个阶段(stage)，方便模型异常终止时从某一个阶段恢复模型。模型一次完整的训练过程就是在运行一个个stage。
 
 ```python
-run_stage(    name, stage_or_func, *args, **kwargs)
+run_stage(
+    name, stage_or_func, *args, **kwargs
+)
 ```
 
 | **参数​**          |                         |                                             |
@@ -301,7 +329,9 @@ run_stage(    name, stage_or_func, *args, **kwargs)
 ### compile
 
 ```python
-compile(    **kwargs)
+compile(
+    **kwargs
+)
 ```
 
 在`kwargs`中存在一些控制模型运行行为的参数：
@@ -325,7 +355,9 @@ def reduce_func(loss):    # do reduce    return reduce_loss
 ### fit
 
 ```python
-fit(    procedure_fn, log_step = 100, project_name = "default_prj", **kwargs)
+fit(
+    procedure_fn, log_step = 100, project_name = "default_prj", **kwargs
+)
 ```
 
 | **参数​**           |            |                                                              |
@@ -363,7 +395,9 @@ efl.FederalModel()
 ### send
 
 ```python
-send(    name, tensor, require_grad=False, mode=MODE.TRAIN, task=None)
+send(
+    name, tensor, require_grad=False, mode=MODE.TRAIN, task=None
+)
 ```
 
 | **参数​**         |             |                                                              |
@@ -379,7 +413,9 @@ send(    name, tensor, require_grad=False, mode=MODE.TRAIN, task=None)
 ### recv
 
 ```python
-recv(    name, dtype=tf.float32, require_grad=False, task=None)
+recv(
+    name, dtype=tf.float32, require_grad=False, task=None
+)
 ```
 
 | **参数​**         |                   |                                                              |
@@ -400,7 +436,9 @@ recv(    name, dtype=tf.float32, require_grad=False, task=None)
 当模型不需要多个optimizer时，可以调用`optimizer_setter`。
 
 ```python
-efl.optimizer_fn.optimizer_setter(    opt)
+efl.optimizer_fn.optimizer_setter(
+    opt
+)
 ```
 
 | **参数​**         |                |                                     |
@@ -414,7 +452,9 @@ efl.optimizer_fn.optimizer_setter(    opt)
 当你希望模型有多个optimizer时，调用`scope_optimizer`。
 
 ```python
-efl.optimizer_fn.scope_optimizer(    scope_to_opt)
+efl.optimizer_fn.scope_optimizer(
+    scope_to_opt
+)
 ```
 
 | **参数​**         |        |                                                             |
@@ -432,7 +472,9 @@ efl.optimizer_fn.scope_optimizer(    scope_to_opt)
 当你的模型只需要执行训练时，调用该接口。
 
 ```python
-efl.procedure_fn.train(    *args, **kwargs)
+efl.procedure_fn.train(
+    *args, **kwargs
+)
 ```
 
 | **参数​**         |       |                                                              |
@@ -446,7 +488,9 @@ efl.procedure_fn.train(    *args, **kwargs)
 当你的模型只需要执行测试时，调用该接口。
 
 ```python
-efl.procedure_fn.eval(    *args, **kwargs)
+efl.procedure_fn.eval(
+    *args, **kwargs
+)
 ```
 
 | **参数​**         |       |                                                              |
@@ -460,7 +504,9 @@ efl.procedure_fn.eval(    *args, **kwargs)
 当你的模型既训练又测试时，调用该接口。
 
 ```python
-efl.procedure_fn.train_and_eval(    *args, **kwargs)
+efl.procedure_fn.train_and_eval(
+    *args, **kwargs
+)
 ```
 
 | **参数​**           |         |                                                              |
@@ -478,7 +524,9 @@ efl.procedure_fn.train_and_eval(    *args, **kwargs)
 在多任务训练中可以调用该接口。每次训练将随机选取一个task更新模型。
 
 ```python
-efl.procedure_fn.cotrain(    *args, **kwargs)
+efl.procedure_fn.cotrain(
+    *args, **kwargs
+)
 ```
 
 | **参数​**              |        |                                                              |
@@ -515,7 +563,9 @@ efl.Stage()
 ### run
 
 ```python
-run(    *args, **kwargs)
+run(
+    *args, **kwargs
+)
 ```
 
 注意：Stage接口并未实现该函数，继承他的子类需要实现该函数。
@@ -540,7 +590,9 @@ efl.stage.LoopStage()
 ### run
 
 ```python
-run(    feed_dict={})
+run(
+    feed_dict={}
+)
 ```
 
 | **参数​**         |        |                                                              |
@@ -554,7 +606,9 @@ run(    feed_dict={})
 `ModelBank`是`Stage`的另一个实现类。
 
 ```python
-efl.stage.ModelBank(    is_chief, config=None)
+efl.stage.ModelBank(
+    is_chief, config=None
+)
 ```
 
 ## 参数
@@ -623,7 +677,9 @@ run()
 根据配置文件中的信息，`Model`会自行创建所需的`StageManager`，该接口一般情况下无需关心。
 
 ```python
-efl.framework.StageManager(    root_scope, device, worker_id, worker_num, project_name, name)
+efl.framework.StageManager(
+    root_scope, device, worker_id, worker_num, project_name, name
+)
 ```
 
 ## 参数
@@ -642,7 +698,9 @@ efl.framework.StageManager(    root_scope, device, worker_id, worker_num, projec
 ### init_arg
 
 ```python
-init_arg(    sess)
+init_arg(
+    sess
+)
 ```
 
 | **参数​**         |              |                                                              |
@@ -654,7 +712,9 @@ init_arg(    sess)
 ### set_monitored_sess
 
 ```python
-set_monitored_sess(    sess)
+set_monitored_sess(
+    sess
+)
 ```
 
 | **参数​**         |              |                                                 |
@@ -666,7 +726,9 @@ set_monitored_sess(    sess)
 ### stage
 
 ```python
-stage(    name, func, interval, *args, **kwargs)
+stage(
+    name, func, interval, *args, **kwargs
+)
 ```
 
 | **参数​**         |                         |                                              |
