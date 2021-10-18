@@ -117,8 +117,9 @@ class TrainerScheduler():
             {'name': 'EFL_PEER_CERTS_FILENAME', 'value': self._cert_file})
         body['spec']['template']['spec']['containers'][0]['env'].append(
             {'name': 'PEER_ADDR', 'value': get_config(job_config, 'peer_addr')})
-        body['spec']['template']['spec']['containers'][0]['env'].append(
-            {'name': 'TF_CPP_MIN_LOG_LEVEL', 'value': get_config(job_config, 'log_level', default='2')})
+        if not get_config(job_config, 'debug_mode', default=False):
+            body['spec']['template']['spec']['containers'][0]['env'].append(
+                {'name': 'TF_CPP_MIN_LOG_LEVEL', 'value': '2'})
         return body
 
     def _generate_template_deploy_config(self, job_config, command, arguments):
@@ -251,7 +252,7 @@ class TrainerScheduler():
                                         'backend': {'serviceName': '{}'.format(self.service_name(appid, i)),
                                                     'servicePort': 80}}]}}
             spec['rules'].append(rule)
-        spec['tls'][0]['hosts'].append('{}.alifl.alibaba-inc.com'.format(self.worker_name(appid, i)))
+            spec['tls'][0]['hosts'].append('{}.alifl.alibaba-inc.com'.format(self.worker_name(appid, i)))
         return metadata, spec
 
     def _create_cluster_ingress(self, appid, worker_num, namespace='default'):

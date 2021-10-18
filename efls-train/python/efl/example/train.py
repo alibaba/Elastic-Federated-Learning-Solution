@@ -48,6 +48,7 @@ def model_fn(model, sample):
     fc3, 1, kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))
   loss = tf.losses.sigmoid_cross_entropy(sample['label'], y)
+  model.add_metric('loss', loss)
   return loss
 
 CTR = efl.Model()

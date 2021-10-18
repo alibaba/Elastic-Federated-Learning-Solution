@@ -497,6 +497,8 @@ class FederalModel(Model):
     if self._federal_role not in ('leader', 'follower'):
       raise ValueError("federal_role must be set one of [leader/follower] in FederalModel.")
     self._communicator = Communicator(config.get_federal_role(),
+                                      config.get_task_index(),
+                                      config.get_worker_num(),
                                       peer_addr=config.get_peer_addr(),
                                       local_addr=config.get_local_addr())
     self._recv_grad_ops = collections.defaultdict(list)

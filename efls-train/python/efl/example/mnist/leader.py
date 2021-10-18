@@ -50,6 +50,7 @@ def model_fn(model, sample):
   label = tf.reshape(label, [-1])
   label = tf.one_hot(label, 10)
   loss = tf.losses.softmax_cross_entropy(label, y)
+  model.add_metric('loss', loss)
   return loss
 
 CTR = efl.FederalModel()
