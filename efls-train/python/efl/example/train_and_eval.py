@@ -57,6 +57,7 @@ def model_fn(model, sample, is_training):
     fc3, 1, kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))
   loss = tf.losses.sigmoid_cross_entropy(sample['label'], y)
+  model.add_metric("loss", loss)
   prediction = tf.nn.sigmoid(y)
   auc = efl.metrics.auc(sample['label'], prediction)
   if is_training:
