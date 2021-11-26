@@ -20,7 +20,7 @@ from pyflink.common.typeinfo import Types
 
 from xfl.common.logger import log
 from xfl.data.connectors import tf_record_keyed_source, tf_record_sink
-from xfl.data.utils import get_flink_batch_env
+from xfl.data.pipelines import get_flink_batch_env
 
 TYPE_BYTE_ARRAY = Types.PRIMITIVE_ARRAY(Types.BYTE())
 if __name__ == "__main__":

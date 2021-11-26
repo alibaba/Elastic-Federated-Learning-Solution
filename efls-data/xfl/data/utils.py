@@ -67,7 +67,3 @@ def get_sample_store_key(hash_col_value, sort_col_value: int):
 def split_sample_store_key(sample_store_key: bytes):
   t = sample_store_key.split(b'#')
   return t
-
-
-def get_k8s_host_name_for_bucket(job_name, bucket_id, server_domain):
-  return "{}-{}.{}".format(job_name, bucket_id, server_domain)

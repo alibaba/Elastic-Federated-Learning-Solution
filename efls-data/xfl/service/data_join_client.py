@@ -39,6 +39,9 @@ class DataJoinClient(object):
     log.info("Start a DataJoinClient at host:{}, ip:{}, port:{}".format(host, ip, port))
     self._job_name = job_name
     self._bucket_id = bucket_id
+    self._metadata = (("servicename", '{}-{}'.format(job_name, bucket_id)), ("app", job_name))
+    #Grpc requests will be forwarded through servicename in part configuration-snippet of nginx-ingress
+    log.info("metadata:{}".format(self._metadata))
 
     service_config_json = json.dumps({
       "methodConfig": [{
@@ -92,7 +95,8 @@ class DataJoinClient(object):
     while True:
       try:
         log.info("client waiting ...")
-        res = self._stub.IsReady(data_join_pb2.BucketIdRequest(bucket_id=self._bucket_id))
+        res = self._stub.IsReady(data_join_pb2.BucketIdRequest(bucket_id=self._bucket_id),
+                                 metadata=self._metadata)
         if res.code == common_pb2.OK:
           return True
         log.info("Client wait not ready:%s", res.message)
@@ -107,7 +111,8 @@ class DataJoinClient(object):
 
   @retry_fn(retry_times=10, needed_exceptions=[grpc.RpcError], retry_interval=0.2)
   def finish_join(self, check_sum):
-    res = self._stub.FinishJoin(data_join_pb2.FinishJoinRequest(bucket_id=self._bucket_id, check_sum=check_sum))
+    res = self._stub.FinishJoin(data_join_pb2.FinishJoinRequest(bucket_id=self._bucket_id, check_sum=check_sum),
+                                metadata=self._metadata)
     if res.code == common_pb2.OK:
       return True
     else:
@@ -117,7 +122,8 @@ class DataJoinClient(object):
   @retry_fn(retry_times=10, needed_exceptions=[grpc.RpcError], retry_interval=0.2)
   def sync_join(self, request_ids):
     res = self._stub.SyncJoin(
-      data_join_pb2.JoinRequest(ids=request_ids, bucket_id=self._bucket_id)
+      data_join_pb2.JoinRequest(ids=request_ids, bucket_id=self._bucket_id),
+      metadata=self._metadata
     )
 
     if res.status.code == common_pb2.OK:
@@ -129,7 +135,8 @@ class DataJoinClient(object):
   @retry_fn(retry_times=10, needed_exceptions=[grpc.RpcError], retry_interval=0.2)
   def sign_blinded_ids_from_server(self, request_ids):
     res = self._stub.PsiSign(
-      data_join_pb2.PsiSignRequest(ids=request_ids)
+      data_join_pb2.PsiSignRequest(ids=request_ids),
+      metadata=self._metadata
     )
     if res.status.code == common_pb2.OK:
       return list(res.signed_ids)
@@ -139,7 +146,7 @@ class DataJoinClient(object):
 
   @retry_fn(retry_times=10, needed_exceptions=[grpc.RpcError], retry_interval=0.2)
   def request_public_key_from_server(self):
-    res = self._stub.GetRsaPublicKey(Empty())
+    res = self._stub.GetRsaPublicKey(Empty(), metadata=self._metadata)
     if res.status.code == common_pb2.OK:
       return res.key
     else:

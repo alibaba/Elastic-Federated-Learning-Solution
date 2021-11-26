@@ -14,5 +14,18 @@
 # ==============================================================================
 
 
-INGRESS_PORT = 8081
-DEFAULT_SECRET = 'tls-secret'
+import unittest
+from xfl.data import utils
+
+
+class TestUtils(unittest.TestCase):
+    def test_gather_res(self):
+        ids = [1,2,3,4]
+        existence = [True,False,False,True]
+        res = utils.gather_res(ids, existence)
+        self.assertEqual(res,[1,4])
+        ids=[1,2,3,4]
+        existence = [False] * len(ids)
+        res = utils.gather_res(ids, existence)
+        self.assertEqual(res,[])
+

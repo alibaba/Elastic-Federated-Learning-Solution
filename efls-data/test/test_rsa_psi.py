@@ -1,4 +1,18 @@
-#-*- coding: utf8 -*-
+# Copyright 2021 Alibaba Group Holding Limited. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -9,6 +23,8 @@ import random
 import rsa
 from cityhash import CityHash64 as OneWayHash
 from gmpy2 import powmod, divm
+
+import unittest
 
 
 def bytes2int(byte, byteorder='little'):
@@ -123,20 +139,24 @@ class FollowerRsaSigner(RsaSigner):
     hashed_signed_hashed_ids = RsaSigner.oneway_hash_list(signed_hashed_ids)
     return hashed_signed_hashed_ids
 
+class TestRsaPsi(unittest.TestCase):
+  def setUp(self):
+    # step1. generate rsa keys
+    RsaSigner.generate_rsa_keys(Constant.RSA_PUBLIC_KEY_FILENAME, Constant.RSA_PRIVATE_KEY_FILENAME)
+
+  def test_psi(self):
+    inputs = [1, 2, 3, 4, 5, 6.5, '7']
+    # step2. leader sign
+    leader = LeaderRsaSigner(Constant.RSA_PUBLIC_KEY_FILENAME, Constant.RSA_PRIVATE_KEY_FILENAME)
+    leader_signed_ids = leader.sign_func(inputs)
+
+    # step3. follower sign
+    follower = FollowerRsaSigner(Constant.RSA_PUBLIC_KEY_FILENAME)
+    follower_signed_ids = follower.sign_func(inputs, leader)
+
+    print(leader_signed_ids)
+    print(follower_signed_ids)
+    self.assertEqual(leader_signed_ids, follower_signed_ids)
 
 if __name__ == '__main__':
-  # step1. generate rsa keys
-  RsaSigner.generate_rsa_keys(Constant.RSA_PUBLIC_KEY_FILENAME, Constant.RSA_PRIVATE_KEY_FILENAME)
-
-  inputs = [1, 2, 3, 4, 5, 6.5, '7']
-  # step2. leader sign
-  leader = LeaderRsaSigner(Constant.RSA_PUBLIC_KEY_FILENAME, Constant.RSA_PRIVATE_KEY_FILENAME)
-  leader_signed_ids = leader.sign_func(inputs)
-
-  # step3. follower sign
-  follower = FollowerRsaSigner(Constant.RSA_PUBLIC_KEY_FILENAME)
-  follower_signed_ids = follower.sign_func(inputs, leader)
-
-  print(leader_signed_ids)
-  print(follower_signed_ids)
-  assert leader_signed_ids == follower_signed_ids, "Sign dismatch"
+  unittest.main(verbosity=1)

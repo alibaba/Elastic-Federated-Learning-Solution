@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  labels:
+    alicloud-pvname: nas
+  name: nas
+spec:
+  capacity:
+    storage: 1000Gi
+  storageClassName: nas
+  persistentVolumeReclaimPolicy: Retain
+  accessModes:
+    - ReadWriteOnce
+  csi:
+    driver: nasplugin.csi.alibabacloud.com
+    volumeAttributes:
+      path: /
+      server: XXXXXX-XXX.cn-beijing.nas.aliyuncs.com
+    volumeHandle: nas
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nas-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas
+  resources:
+    requests:
+      storage: 1000Gi
+  selector:
+    matchLabels:
+      alicloud-pvname: nas

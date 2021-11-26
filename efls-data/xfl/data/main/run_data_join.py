@@ -76,6 +76,10 @@ if __name__ == '__main__':
                       const=True, nargs='?',
                       help="True if this job use rsa-psi method.")
 
+  parser.add_argument('--need_sort', type=str_to_bool,
+                      const=True, nargs='?',
+                      help="True if you need sort samples in client. Sorting samples leeds to high cost of memory")
+
   parser.add_argument('--local_client', type=str, default='no',
                       choices=['local_no_tf', 'local', 'no'],
                       help='running client without pyflink')
@@ -111,6 +115,7 @@ if __name__ == '__main__':
     tls_crt_path=args.tls_path,
     wait_s=args.wait_s,
     use_psi=args.use_psi,
+    need_sort=args.need_sort,
     conf=conf)
   if args.job_plan_output_path:
     with open(args.job_plan_output_path, "w") as f:

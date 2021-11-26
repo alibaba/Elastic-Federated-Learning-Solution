@@ -24,7 +24,7 @@ from xfl.common.common import RunMode
 from xfl.common.logger import log
 from xfl.data.connectors import tf_record_sink, tf_record_keyed_source
 from xfl.data.functions import DefaultKeySelector, ClientSortJoinFunc, ServerSortJoinFunc, ServerPsiJoinFunc, \
-  ClientPsiJoinFunc
+  ClientPsiJoinFunc, ClientBatchJoinFunc
 from xfl.data.store.sample_kv_store import DictSampleKvStore
 from xfl.data.store.flink_state_kv_store import FlinkStateKvStore
 from xfl.data.store.etcd_kv_store import EtcdSampleKvStore
@@ -65,6 +65,7 @@ class data_join_pipeline(object):
                tls_crt_path: str,
                wait_s: int = 1800,
                use_psi: bool = False,
+               need_sort: bool = False,
                conf: dict = {}):
     self._job_name = job_name
     env = get_flink_batch_env(conf)
@@ -101,7 +102,11 @@ class data_join_pipeline(object):
       if use_psi:
         client_func = ClientPsiJoinFunc
       else:
-        client_func = ClientSortJoinFunc
+        log.info("Client need sort: {}.".format(need_sort))
+        if need_sort:
+          client_func = ClientSortJoinFunc
+        else:
+          client_func = ClientBatchJoinFunc
       ds = ds.key_by(DefaultKeySelector(bucket_num=bucket_num), key_type=Types.INT()) \
         .process(client_func(
         job_name=job_name,

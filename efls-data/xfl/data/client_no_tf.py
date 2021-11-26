@@ -140,8 +140,6 @@ class ClientSortJoinFunc_local(object):
         log.info("")
         keys_to_join = sorted(self._sample_store.keys(), key=cmp_to_key(self._cmp_func))
         if self._run_mode == RunMode.K8S:
-            # generate host for connecting corresponding service on server cluster
-            self._peer_host = utils.get_k8s_host_name_for_bucket(self._job_name, self._bucket_id, self._peer_host)
             if self._tls_crt is None or len(self._tls_crt) == 0:
                 raise RuntimeError("tls crt should not be empty in k8s mode client job!")
         client_port = self._peer_port
@@ -196,6 +194,7 @@ class data_join_pipeline_local_no_tf(object):
                  tls_crt_path: str,
                  wait_s: int = 1800,
                  use_psi: bool = False,
+                 need_sort: bool = False,
                  conf: dict = {}):
         self._input_path = input_path
         self._output_path = output_path
