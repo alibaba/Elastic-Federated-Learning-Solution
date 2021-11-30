@@ -1,6 +1,6 @@
 scipy==1.5.4
 numpy==1.16.4
-tensorflow==1.14.0
+tensorflow==1.15.2
 murmurhash
 pylint
 grpcio-tools
@@ -15,3 +15,4 @@ mmh3~=3.0.0
 cardinality~=0.1.1
 gmpy2
 cityhash
+tensorflow-io==0.8.1

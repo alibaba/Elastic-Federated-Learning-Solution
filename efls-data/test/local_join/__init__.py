@@ -12,7 +12,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-
-INGRESS_PORT = 8081
-DEFAULT_SECRET = 'tls-secret'

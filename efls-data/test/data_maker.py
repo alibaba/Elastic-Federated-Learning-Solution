@@ -19,7 +19,7 @@ client_data_path = "/tmp/input/test_data_client"
 server_data_path = "/tmp/input/test_data_server"
 file_batch_size = 4096
 file_cnt = 10
-# dataformat: example_id, event_time, aliemb
+# dataformat: example_id, event_time, emb
 
 
 

@@ -55,7 +55,7 @@ sudo docker run --net=host -it --rm --cpuset-cpus="0-63" -m 300G --name <YOUR_CO
 
 ## 模型训练
 
-使用以下命令进入数据求交docker容器
+使用以下命令进入模型训练docker容器
 ```
 sudo docker run --net=host -it --rm --cpuset-cpus="0-63" -m 300G --name <YOUR_CONTAINER_NAME> -v $HOME/workspace:/workspace -w /workspace/Elastic-Federated-Learning-Solution/efls-algo <YOUR-ELFS-TRAIN-DOCKER-IMAGE> /bin/bash
 ```

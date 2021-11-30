@@ -6,25 +6,15 @@ _**The Discrete Gaussian for Differential Privacy**_([https://arxiv.org/abs/2004
 在差分隐私中，样本被称为records，mini-batch被称为samples，梯度被称为queries，具体请阅读论文：<br />
 **_A General Approach to Adding Differential Privacy to Iterative Training Procedures_**
 ([https://arxiv.org/pdf/1812.06210.pdf](https://arxiv.org/pdf/1812.06210.pdf))
+
 # 差分隐私算法简介
 目前框架只提供了采用高斯噪声的差分隐私机制，因此以下算法以高斯噪声为例。
 
 | **差分隐私随机梯度下降算法** |
 | --- |
-| **输入：** 训练样本![](https://latex.codecogs.com/svg.latex?\%5C%7Bx_1%2C%5Cdots%2Cx_N%5C%7D)，micro-batch大小L，mini-batch大小M，学习率![](https://latex.codecogs.com/svg.latex?\\eta_t)，训练步数T<br />         高斯噪声标准差因子![](https://latex.codecogs.com/svg.latex?\sigma)，梯度剪切阈值C，损失函数![](https://latex.codecogs.com/svg.latex?\\mathcal%20L(\\pmb\\theta,%20X))​ |
-| **输出：** 模型参数![](https://latex.codecogs.com/svg.image?%5Cpmb%5Ctheta_T)​ |
-**算法流程：**<br />
-1. 初始化模型参数为![](https://latex.codecogs.com/svg.latex?\\pmb\\theta_0)<br />
-2. ![](https://latex.codecogs.com/svg.image?for\\&space;\\&space;t\\in[T]\\&space;\\&space;do)<br />
-   1. 随机抽取M个样本，称为一个mini-batch<br />
-   2. 将一个mini-batch分成若干个micro-batch，每个micro-batch包含L个样本<br />
-   3. 计算每个micro-batch的梯度![](https://latex.codecogs.com/svg.image?\\pmb&space;g_t(X_i)=\\nabla_{\\pmb\\theta_t}\\mathcal&space;L(\\pmb\\theta_t,X_i))<br />
-   4. 梯度剪切![](https://latex.codecogs.com/svg.image?%5Cbar%7B%5Cpmb%20g%7D_t(X_i)=%5Cpmb%20g_t(X_i)/%5Cmax(1,%5Cfrac%7B%5C%7Cg_t(X_i)%5C%7C_2%7DC))<br />
-   5. 梯度加噪![](https://latex.codecogs.com/svg.image?\\hat{\\pmb&space;g}_t(X_i)=\\bar{\\pmb&space;g}_t(X_i)&plus;\\mathcal&space;N(0,&space;\sigma^2C^2))<br />
-   6. 梯度求均值![](https://latex.codecogs.com/svg.image?%5Ctilde%7B%5Cpmb%20g%7D_t=%5Csum_i%5Chat%7B%5Cpmb%20g%7D_t(X_i))<br />
-   7. 更新模型参数![](https://latex.codecogs.com/svg.image?%5Cpmb%5Ctheta_%7Bt&plus;1%7D=%5Cpmb%5Ctheta_t-%5Ceta_t%5Ctilde%7B%5Cpmb%20g%7D_t)<br />
-
-<a name="nM3HG"></a>
+| **输入：**训练样本$\{x_1,\dots,x_n\}$，micro-batch大小$L$，mini-batch大小$M$，学习率$\eta$，训练步数$T$ ，高斯噪声标准差因子![](https://latex.codecogs.com/svg.latex?\sigma)，梯度剪切阈值$C$，损失函数$\mathcal L$ |
+| **输出：**模型参数![](https://latex.codecogs.com/svg.image?%5Cpmb%5Ctheta_T)​ |
+|**算法流程：<br />**1. 初始化模型参数为$\theta_0$<br />2. $for\ \ \ t\in[T]\ \ \ do$<br />    a) 随机抽取$M$个样本，称为一个mini-batch<br />    b) 将一个mini-batch分成若干个micro-batch，每个micro-batch包含$L$个样本<br />    c) 计算每个micro-batch的梯度$\pmb g_t(X_i)=\nabla_{\pmb\theta_t}\mathcal L(\pmb\theta_t,X_i)$<br />    d) 梯度剪切$\bar{\pmb g}_t(X_i)=\pmb g_t(X_i)/\max(1,\frac{\|g_t(X_i)\|_2}C)$<br />    e) 梯度加噪$\hat{\pmb g}_t(X_i)=\bar{\pmb g}_t(X_i)+\mathcal N(0, \sigma^2C^2)$<br />    f) 梯度求均值$\tilde{\pmb g}_t=\sum_i\hat{\pmb g}_t(X_i)$<br />    g) 更新模型参数![](https://latex.codecogs.com/svg.image?%5Cpmb%5Ctheta_%7Bt&plus;1%7D=%5Cpmb%5Ctheta_t-%5Ceta_t%5Ctilde%7B%5Cpmb%20g%7D_t)<br />|
 # 差分隐私优化器
 我们为用户提供了optimizer的装饰器，装饰器用于将非差分隐私optimizer转换为差分隐私的optimizer，并提供了一些已经装饰好的优化器：<br />
 `DPAdagradOptimizer`、`DPAdamOptimizer`、`DPGradientDescentOptimizer`、<br />
@@ -136,6 +126,7 @@ DPGaussianOptimizerClass(
 ## 效果测试
 **clip**: 梯度剪切的阈值，![](https://latex.codecogs.com/svg.image?clip%5C_grad=grad%5Ctimes%5Cmin(1,%5Cfrac%7Bclip%7D%7B%5C%7Cgrad%5C%7C_2%7D))<br />**stddev_ratio**: 高斯噪声标准差的因子，![](https://latex.codecogs.com/svg.image?stddev=clip%5Ctimes%20stddev%5C_ratio)<br />**microbatch**: 一个batch被差分隐私框架切分成若干个microbatch，microbatch的数量必须能整除batch_size，<br />每个microbatch单独训练，所有microbatch的梯度聚合加噪。<br />**eposilon**: 差分隐私的衡量指标，越小隐私保护程度越高<br />**delta:** 差分隐私的衡量指标，越小隐私保护程度越高
 <a name="kugp4"></a>
+
 #### 1. stddev_ratio对效果的影响
 | 学习率 | stddev_ratio | clip | batch大小 | microbatch数量 | epoch数量 | epsilon | 准确率 | delta |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

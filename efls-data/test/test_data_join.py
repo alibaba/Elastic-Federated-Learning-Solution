@@ -1,10 +1,26 @@
+# Copyright 2021 Alibaba Group Holding Limited. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import os
-import tensorflow as tf
-import numpy as np
 import shutil
-import tempfile
-import functools
 import threading
+
+import numpy as np
+import tensorflow as tf
+import unittest
+
 from data_maker import make_data
 from xfl.data.pipelines import data_join_pipeline
 
@@ -26,19 +42,19 @@ class model_thread(threading.Thread):
                  sort_col_name: str,
                  bucket_num: int,
                  sample_store_type = 'memory',
-                 host = 'localhost',
-                 port = 50051,
-                 ingress_ip = None,
-                 batch_size = 2048,
-                 file_part_size = 1024,
-                 jar = 'file:///xfl/lib/efls-flink-connectors-1.0-SNAPSHOT.jar',
-                 run_mode = 'local',
-                 tls_crt_path = '/xfl/deploy/quickstart/tls.crt',
-                 wait_s = 1800,
-                 use_psi = True):
+                 host='localhost',
+                 port=50051,
+                 ingress_ip=None,
+                 batch_size=2048,
+                 file_part_size=1024,
+                 jar='file:///xfl/lib/efls-flink-connectors-1.0-SNAPSHOT.jar',
+                 run_mode='local',
+                 tls_crt_path=None,
+                 wait_s=1800,
+                 use_psi=False,
+                 need_sort=True):
         threading.Thread.__init__(self)
-        conf = {}
-        conf['jars'] = jar.split(',')
+        conf = {'jars': jar.split(',')}
 
         self.pipeline = data_join_pipeline(
             input_path=input_path,
@@ -58,6 +74,7 @@ class model_thread(threading.Thread):
             tls_crt_path=tls_crt_path,
             wait_s=wait_s,
             use_psi=use_psi,
+            need_sort=need_sort,
             conf=conf)
 
     def run(self):
@@ -145,11 +162,17 @@ def result_judge(data_common):
                 get_error = True
                 break
 
-        if get_error == False:
-            print("No error")
+        assert not get_error, "Some error occur!"
         print("data repeat %d times in client" % cnt1)
         print("data repeat %d times in server" % cnt2)
 
-data_common = make_data()
-run_client_and_server()
-result_judge(data_common)
+class TestPsiDataJoin(unittest.TestCase):
+    def setUp(self):
+        self._data_common = make_data()
+
+    def test_psi_join(self):
+        run_client_and_server()
+        result_judge(self._data_common)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

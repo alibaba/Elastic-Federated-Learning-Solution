@@ -13,6 +13,22 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
+from tensorflow.python.platform import gfile
 
-INGRESS_PORT = 8081
-DEFAULT_SECRET = 'tls-secret'
+
+def assert_valid_dir(path):
+  if not gfile.Exists(path):
+    raise RuntimeError("path {} not exist.".format(path))
+  if not gfile.IsDirectory(path):
+    raise RuntimeError("path {} is not a directory!".format(path))
+
+
+def list_data_file_recursively(path):
+  res = []
+  for tuple in gfile.Walk(path):
+    for f in tuple[2]:
+      if str(f).startswith("_") or str(f).startswith("."):
+        continue
+      res.append(os.path.join(tuple[0], f))
+  return res

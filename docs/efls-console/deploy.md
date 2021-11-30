@@ -17,8 +17,8 @@ host 是一方的服务，peer 是另一方的服务，双方功能上是对等�
 
    
 ```commandline
-kubectl create -f ./manifests/console-aliyun-host.yaml
-kubectl create -f ./manifests/console-aliyun-peer.yaml
+kubectl create -f ./manifests/console-host.yaml
+kubectl create -f ./manifests/console-peer.yaml
 ```  
 
 2. 数据库初始化

@@ -26,8 +26,7 @@ from xfl.data.check_sum import CheckSum
 from xfl.data.psi.rsa_signer import ServerRsaSigner
 from xfl.data.store.sample_kv_store import SampleKvStore
 from xfl.k8s.k8s_client import K8sClient
-from xfl.k8s.k8s_resource import create_data_join_service, create_data_join_ingress, \
-  release_data_join_ingress, release_data_join_service
+from xfl.k8s.k8s_resource import create_data_join_service, release_data_join_service
 
 
 class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
@@ -40,6 +39,9 @@ class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
     self._joined_res = []
     self._check_sum = CheckSum(0)
     self._sample_kv_store = sample_kv_store
+    self._request_cnt = 0
+    self._hit_cnt = 0
+    self._all_cnt = 0
     assert isinstance(self._sample_kv_store, SampleKvStore)
 
   @staticmethod
@@ -60,6 +62,10 @@ class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
   def get_final_result(self):
     return self._joined_res
 
+  def print_result_statistic(self):
+    log.info("Join result, reuqest cnt: {}, ids cnt: {}, ids hit cnt: {}"
+             .format(self._request_cnt, self._all_cnt, self._hit_cnt))
+
   def IsReady(self, request: data_join_pb2.BucketIdRequest, context) -> common_pb2.Status:
     if self._ready:
       return common_pb2.Status(code=common_pb2.OK, message='')
@@ -76,7 +82,8 @@ class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
     if self._check_sum.get_check_sum() != request.check_sum:
       log.error("CheckSum Error, request :%d, Server :%d", request.check_sum, self._check_sum.get_check_sum())
       return common_pb2.Status(code=common_pb2.INTERNAL, message='CheckSumError, Join Failed')
-    log.info("CheckSum check ok! Finish Server for bucket:{} !".format(self._bucket_id))
+    log.info("CheckSum check ok, value is {}. Finish Server for bucket:{} !".format(request.check_sum, self._bucket_id))
+    self.print_result_statistic()
     self._finished.set()
     return common_pb2.Status(code=common_pb2.OK, message='')
 
@@ -85,9 +92,12 @@ class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
       return self._join_response(common_pb2.NOT_READY, '', [])
 
     else:
+      self._request_cnt += 1
       if self._bucket_id != request.bucket_id:
         return self._join_response(common_pb2.INVALID_ARGUMENT, '', [])
       res = self._sample_kv_store.exists(request.ids)
+      self._all_cnt += len(request.ids)
+      self._hit_cnt += sum(res)
       with self._joined_res_lock:
         self._joined_res.append(utils.gather_res(request.ids, res))
       return self._join_response(common_pb2.OK, '', res)
@@ -134,7 +144,7 @@ class K8sResourceHandler(object):
 
   def create(self):
     self.pod_name = os.environ["HOSTNAME"]
-    log.info("Register k8s serivce and ingress for job:{}, bucket:{}, pod:{}"
+    log.info("Register k8s serivce for job:{}, bucket:{}, pod:{}"
              .format(self.job_name, self.bucket_id, self.pod_name))
     self.kcli = K8sClient()
     self.kcli.init(config_path=self.config_path)
@@ -150,21 +160,10 @@ class K8sResourceHandler(object):
       bucket_id=self.bucket_id,
       target_port=self.port
     )
-    # ingress register
-    create_data_join_ingress(
-      client=self.kcli,
-      app_name=self.job_name,
-      bucket_id=self.bucket_id,
-    )
 
   def delete(self):
     if self.kcli == None:
       raise RuntimeError("K8sResourceHandler `delete()` should be called after `create()`")
-    release_data_join_ingress(
-      client=self.kcli,
-      app_name=self.job_name,
-      bucket_id=self.bucket_id
-    )
     release_data_join_service(
       client=self.kcli,
       app_name=self.job_name,

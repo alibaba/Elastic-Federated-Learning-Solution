@@ -14,5 +14,17 @@
 # ==============================================================================
 
 
-INGRESS_PORT = 8081
-DEFAULT_SECRET = 'tls-secret'
+from typing import List
+from xfl.data.local_join import utils
+
+
+class FileSharding(object):
+  def shard(self, worker_idx, worker_num, input_path, output_path) -> List[tuple]:
+    shards_to_process = []
+    utils.assert_valid_dir(input_path)
+    input_files = utils.list_data_file_recursively(input_path)
+    for i, f in enumerate(input_files):
+      if i % worker_num == worker_idx:
+        o_file_path = f.replace(input_path, output_path, 1)
+        shards_to_process.append((f, o_file_path))
+    return shards_to_process
