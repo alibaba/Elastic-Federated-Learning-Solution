@@ -64,6 +64,7 @@ const AddInformationTask: React.FC<AddInformationTaskProps> = (props) => {
     if (mode !== 'edit') {
       replenishData["task_root"] = false;
       replenishData["type"] = 0;
+      replenishData["project_id"] = versionInfo?.project_id;
     };
     // mode !== 'edit' && (replenishData["task_root"] = false);
     editInformationTask({ ...replenishData });

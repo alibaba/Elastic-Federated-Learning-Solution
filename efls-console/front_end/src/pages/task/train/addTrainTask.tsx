@@ -64,6 +64,7 @@ const AddTrainTask: React.FC<AddTrainTaskProps> = (props) => {
     if (mode !== 'edit') {
       replenishData["task_root"] = false;
       replenishData["type"] = 1;
+      replenishData["project_id"] = versionInfo?.project_id;
     };
     // mode !== 'edit' && (replenishData["task_root"] = false);
     edit_task({ ...replenishData });
