@@ -57,23 +57,19 @@ def input_fn(model, mode):
                                  name='train' if mode == efl.MODE.TRAIN else 'eval')
 
 def model_fn(model, sample, is_training):
+  inputs = tf.reshape(sample['img'], [-1, 28, 28, 1])
+  labels = tf.squeeze(tf.cast(sample['label'], tf.int32))
+  y = tf.layers.conv2d(inputs, 16, 8, strides=2, padding='same', activation='relu')
+  y = tf.layers.max_pooling2d(y, 2, 1)
+  y = tf.layers.conv2d(y, 32, 4, strides=2, padding='valid', activation='relu')
+  y = tf.layers.max_pooling2d(y, 2, 1)
+  y = tf.layers.flatten(y)
   if is_training:
-    labels = model.recv('labels_train', dtype=tf.int32, require_grad=False)
-    y = model.recv('y_train', dtype=tf.float32, require_grad=True)
+    model.send('y_train', y, require_grad=True)
+    model.send('labels_train', labels, require_grad=False)
   else:
-    labels = model.recv('labels_test', dtype=tf.int32, require_grad=False)
-    y = model.recv('y_test', dtype=tf.float32, require_grad=False)
-  y = tf.reshape(y, [-1, 512])
-  y = tf.layers.dense(y, 32, activation='relu')
-  logits = tf.layers.dense(y, 10)
-  loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits)
-  if is_training:
-    return loss
-  else:
-    prediction = tf.argmax(logits, axis=-1)
-    accuracy = tf.metrics.accuracy(labels, prediction)
-    model.add_metric('accuracy', accuracy, efl.MODE.EVAL)
-    return accuracy[1]
+    model.send('y_test', y, mode=efl.MODE.EVAL, require_grad=False)
+    model.send('labels_test', labels, mode=efl.MODE.EVAL, require_grad=False)
 
 def loss_fn(model, sample):
   with tf.variable_scope('fed_mnist'):
@@ -87,9 +83,9 @@ CNN = efl.FederalModel()
 CNN.input_fn(input_fn)
 CNN.loss_fn(loss_fn)
 CNN.eval_fn(eval_fn)
-CNN.optimizer_fn(efl.optimizer_fn.optimizer_setter(efl.DPGradientDescentGaussianOptimizer(
-    l2_norm_clip=1.0, noise_multiplier=1.0, learning_rate=0.25)))
-CNN.compile(opt_config={'BACKEND_MODE': 'unnoise'})
+CNN.optimizer_fn(efl.optimizer_fn.optimizer_setter(efl.privacy.DPGradientDescentGaussianOptimizer(
+    noise_multiplier=1.0, learning_rate=0.25)))
+CNN.compile()
 CNN.fit(efl.procedure_fn.train_and_evaluate(train_step=235, eval_step=100, max_iter=20),
         log_step=100,
         project_name='fed_mnist')

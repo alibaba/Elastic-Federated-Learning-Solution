@@ -17,11 +17,10 @@ import os
 import numpy as np
 import tensorflow.compat.v1 as tf
 import efl
-from efl.lib import ops as fed_ops
 
 def input_fn(model, mode):
   if mode == efl.MODE.TRAIN:
-    dataio = efl.data.FederalDataIO("./leader_train", 256, model.communicator, model.federal_role, 0, 1, data_mode='local')
+    dataio = efl.data.FederalDataIO("./follower_train", 256, model.communicator, model.federal_role, 0, 1, data_mode='local')
     dataio.fixedlen_feature('sample_id', 1, dtype=tf.int64)
     dataio.fixedlen_feature('feature', 14*28, dtype=tf.float32)
     dataio.fixedlen_feature('label', 1, dtype=tf.float32)
@@ -29,27 +28,20 @@ def input_fn(model, mode):
     model.add_hooks([dataio.get_hook()])
     columns = {
       "label": [tf.feature_column.numeric_column('label', 1)],
-      "emb": [tf.feature_column.numeric_column('feature', 14*28)]}
+      "emb": [tf.feature_column.numeric_column('feature', 28*14)]}
     return efl.FederalSample(features, columns, model.federal_role, model.communicator, sample_id_name='sample_id')
 
 def model_fn(model, sample):
   inputs = sample['emb']
-  fc1 = tf.layers.dense(inputs, 128,
-    kernel_initializer=tf.truncated_normal_initializer(
-      stddev=0.001, dtype=tf.float32))
-  f_fc1 = model.recv('fc1', dtype=tf.float32, require_grad=True, shape=[-1, 128])
-  fc1 = fc1 + f_fc1
-  y = tf.layers.dense(
-    fc1, 10, kernel_initializer=tf.truncated_normal_initializer(
-      stddev=0.001, dtype=tf.float32))
-  pred = tf.argmax(y, axis=-1)
-  _, accuracy = tf.metrics.accuracy(sample['label'], pred)
-  model.add_metric('accuracy', accuracy)
-  label = tf.cast(sample['label'], tf.int32)
-  label = tf.reshape(label, [-1])
-  label = tf.one_hot(label, 10)
-  loss = tf.losses.softmax_cross_entropy(label, y)
-  return loss
+  if 'keypair' in model.keypairs:
+    keypair = model.keypair('keypair')
+  else:
+    keypair = model.create_keypair('keypair', efl.privacy.Role.SENDER, n_bytes=128, group_size=10)
+#  fc1 = tf.layers.dense(inputs, 128,
+#    kernel_initializer=tf.truncated_normal_initializer(
+#      stddev=0.001, dtype=tf.float32))
+#  y = model.paillier_sender_dense(inputs, keypair, 'paillier_dense', 0.001, 10)
+  y = model.paillier_sender_dense(inputs, keypair, 'paillier_dense', 0.001, 128)
 
 CTR = efl.FederalModel()
 CTR.input_fn(input_fn)
@@ -57,5 +49,5 @@ CTR.loss_fn(model_fn)
 CTR.optimizer_fn(efl.optimizer_fn.optimizer_setter(tf.train.GradientDescentOptimizer(0.001)))
 CTR.compile()
 CTR.fit(efl.procedure_fn.train(), 
-        log_step=100, 
+        log_step=1, 
         project_name="train")

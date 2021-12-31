@@ -37,28 +37,47 @@ from __future__ import print_function
 
 import tensorflow.compat.v1 as tf
 
-from tensorflow_privacy.privacy.analysis import privacy_ledger
 from tensorflow_privacy.privacy.dp_query import gaussian_query
+from tensorflow_privacy.privacy.dp_query import dp_query
 
 from efl import exporter
 
-def zeros_like(arg):
+
+def _zeros_like(arg):
   try:
     arg = tf.convert_to_tensor(value=arg)
   except TypeError:
     pass
   return tf.zeros(tf.shape(arg), arg.dtype)
 
-def initial_sample_state(self, template):
-  return tf.nest.map_structure(zeros_like, template)
 
-gaussian_query.GaussianSumQuery.initial_sample_state = initial_sample_state
+class GaussianSumQuery(gaussian_query.GaussianSumQuery):
+
+  def initial_sample_state(self, template):
+    return tf.nest.map_structure(_zeros_like, template)
+
+
+class ElementWiseGaussianSumQuery(dp_query.SumAggregationDPQuery):
+
+  def __init__(self, noise_multiplier=1):
+    self._noise_multiplier = noise_multiplier
+
+  def initial_sample_state(self, template):
+    return tf.nest.map_structure(_zeros_like, template)
+
+  def get_noised_result(self, sample_state, global_state):    
+
+    def add_noise(v):
+      return v + tf.random.normal(tf.shape(v), dtype=v.dtype) * v * self._noise_multiplier
+
+    return tf.nest.map_structure(add_noise, sample_state), global_state
+
 
 _DEFAULT_OPT_CONFIG = {
   'REDUCE': 'mean'
 }
 
-@exporter.export('make_optimizer_class')
+@exporter.export('privacy.make_optimizer_class')
 def make_optimizer_class(cls):
   """Constructs a DP optimizer class from an existing one."""
   parent_code = tf.train.Optimizer.compute_gradients.__code__
@@ -100,6 +119,7 @@ def make_optimizer_class(cls):
       # may cause an OOM error. Set unroll_microbatches=True to avoid this bug.
       self._unroll_microbatches = unroll_microbatches
       self._was_compute_gradients_called = False
+      self._alpha = None
 
     def compute_gradients(self,
                           loss,
@@ -200,7 +220,8 @@ def make_optimizer_class(cls):
   return DPOptimizerClass
 
 
-@exporter.export('make_gaussian_optimizer_class')
+
+@exporter.export('privacy.make_gaussian_optimizer_class')
 def make_gaussian_optimizer_class(cls):
   """Constructs a DP optimizer with Gaussian averaging of updates."""
 
@@ -209,19 +230,17 @@ def make_gaussian_optimizer_class(cls):
 
     def __init__(
         self,
-        l2_norm_clip,
-        noise_multiplier,
+        noise_multiplier=0,
+        l2_norm_clip=None,
         num_microbatches=None,
-        ledger=None,
         unroll_microbatches=False,
         *args,
         **kwargs):
-      dp_sum_query = gaussian_query.GaussianSumQuery(
-          l2_norm_clip, l2_norm_clip * noise_multiplier)
 
-      if ledger:
-        dp_sum_query = privacy_ledger.QueryWithLedger(dp_sum_query,
-                                                      ledger=ledger)
+      if l2_norm_clip is None:
+        dp_sum_query = ElementWiseGaussianSumQuery(noise_multiplier)
+      else:
+        dp_sum_query = GaussianSumQuery(l2_norm_clip, l2_norm_clip * noise_multiplier)
 
       super(DPGaussianOptimizerClass, self).__init__(
           dp_sum_query,
@@ -240,27 +259,27 @@ AdagradOptimizer = tf.train.AdagradOptimizer
 AdamOptimizer = tf.train.AdamOptimizer
 GradientDescentOptimizer = tf.train.GradientDescentOptimizer
 
-@exporter.export('DPAdagradOptimizer')
+@exporter.export('privacy.DPAdagradOptimizer')
 class DPAdagradOptimizer(make_optimizer_class(AdagradOptimizer)):
   pass
 
-@exporter.export('DPAdamOptimizer')
+@exporter.export('privacy.DPAdamOptimizer')
 class DPAdamOptimizer(make_optimizer_class(AdamOptimizer)):
   pass
 
-@exporter.export('DPGradientDescentOptimizer')
+@exporter.export('privacy.DPGradientDescentOptimizer')
 class DPGradientDescentOptimizer(make_optimizer_class(GradientDescentOptimizer)):
   pass
 
-@exporter.export('DPAdagradGaussianOptimizer')
+@exporter.export('privacy.DPAdagradGaussianOptimizer')
 class DPAdagradGaussianOptimizer(make_gaussian_optimizer_class(AdagradOptimizer)):
   pass
 
-@exporter.export('DPAdamGaussianOptimizer')
+@exporter.export('privacy.DPAdamGaussianOptimizer')
 class DPAdamGaussianOptimizer(make_gaussian_optimizer_class(AdamOptimizer)):
   pass
 
-@exporter.export('DPGradientDescentGaussianOptimizer')
+@exporter.export('privacy.DPGradientDescentGaussianOptimizer')
 class DPGradientDescentGaussianOptimizer(make_gaussian_optimizer_class(GradientDescentOptimizer)):
   pass
 

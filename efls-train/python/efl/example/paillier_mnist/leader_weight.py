@@ -20,7 +20,7 @@ import efl
 
 def input_fn(model, mode):
   if mode == efl.MODE.TRAIN:
-    dataio = efl.data.FederalDataIO("./follower_train", 256, model.communicator, model.federal_role, 0, 1, data_mode='local')
+    dataio = efl.data.FederalDataIO("./leader_train", 256, model.communicator, model.federal_role, 0, 1, data_mode='local')
     dataio.fixedlen_feature('sample_id', 1, dtype=tf.int64)
     dataio.fixedlen_feature('feature', 14*28, dtype=tf.float32)
     dataio.fixedlen_feature('label', 1, dtype=tf.float32)
@@ -28,19 +28,23 @@ def input_fn(model, mode):
     model.add_hooks([dataio.get_hook()])
     columns = {
       "label": [tf.feature_column.numeric_column('label', 1)],
-      "emb": [tf.feature_column.numeric_column('feature', 28*14)]}
+      "emb": [tf.feature_column.numeric_column('feature', 14*28)]}
     return efl.FederalSample(features, columns, model.federal_role, model.communicator, sample_id_name='sample_id')
 
 def model_fn(model, sample):
-  input = sample['emb']
-  fc1 = tf.layers.dense(input, 128,
+  inputs = sample['emb']
+  if 'keypair' in model.keypairs:
+    keypair = model.keypair('keypair')
+  else:
+    keypair = model.create_keypair('keypair', efl.privacy.Role.RECEIVER, n_bytes=128, group_size=10)
+  fc1 = tf.layers.dense(inputs, 128,
     kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))
-  active_layer = efl.privacy.EncryptActiveLayer(model.communicator, 128, "public_key.json", "private_key.json", update_noise=False)
-  fc1 = active_layer(fc1)
-  y = tf.layers.dense(
+  #fc1 = model.paillier_recver_weight(fc1, keypair, 'paillier_weight', 0.001, 128)
+  fc1 = tf.layers.dense(
     fc1, 10, kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))
+  y = model.paillier_recver_weight(fc1, keypair, 'paillier_weight', 0.001, 10)
   pred = tf.argmax(y, axis=-1)
   _, accuracy = tf.metrics.accuracy(sample['label'], pred)
   model.add_metric('accuracy', accuracy)

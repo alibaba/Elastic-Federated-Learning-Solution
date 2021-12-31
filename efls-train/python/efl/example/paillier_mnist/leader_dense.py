@@ -32,13 +32,16 @@ def input_fn(model, mode):
     return efl.FederalSample(features, columns, model.federal_role, model.communicator, sample_id_name='sample_id')
 
 def model_fn(model, sample):
-  input = sample['emb']
-  fc1 = tf.layers.dense(input, 128,
-    kernel_initializer=tf.truncated_normal_initializer(
-      stddev=0.001, dtype=tf.float32))
-  passive_layer = efl.privacy.EncryptPassiveLayer(model.communicator, 128, 128, "public_key.json")
-  fc1 = passive_layer(fc1)
-  fc1 = tf.reshape(fc1, [-1, 256])
+  inputs = sample['emb']
+  if 'keypair' in model.keypairs:
+    keypair = model.keypair('keypair')
+  else:
+    keypair = model.create_keypair('keypair', efl.privacy.Role.RECEIVER, n_bytes=128, group_size=10)
+#  fc1 = tf.layers.dense(inputs, 128,
+#    kernel_initializer=tf.truncated_normal_initializer(
+#      stddev=0.001, dtype=tf.float32))
+#  y = model.paillier_recver_dense(fc1, keypair, 'paillier_dense', 0.001, 10, [-1, 128])
+  fc1 = model.paillier_recver_dense(inputs, keypair, 'paillier_dense', 0.001, 128, [-1, 28*14])
   y = tf.layers.dense(
     fc1, 10, kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))

@@ -29,7 +29,6 @@ from efl.utils import func_patcher
 from efl.utils import metrics
 from efl.utils.redirect_logging import redirect_log
 
-from efl.framework import dp_optimizer
 from efl.framework import sample
 from efl.framework import model
 from efl.framework import stage
@@ -43,7 +42,7 @@ from efl.model_fn import procedure_fn
 from efl.stage import loop
 from efl.stage import model_bank
 from efl.service_discovery import service_discovery
-from efl.privacy import encrypt_layer, encrypt
+from efl.privacy import paillier, dp_optimizer, paillier_layer, compute_dp_sgd_privacy, secret_sharing, encryptor_utils
 
 exporter.filldict(globals())
 
