@@ -12,27 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from efl import exporter
+from tensorflow_privacy.privacy.analysis.compute_dp_sgd_privacy import compute_dp_sgd_privacy as cdsp
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import os
-import random
-import gmpy2
-
-def powmod(a, b, c):
-  return int(gmpy2.powmod(a, b, c))
-
-
-def invert(a, b):
-  x = int(gmpy2.invert(a, b))
-  if x == 0:
-    raise ZeroDivisionError('invert(a, b) no inverse exists')
-  return x
-   
-   
-def getprimeover(n):
-  r = gmpy2.mpz(random.SystemRandom().getrandbits(n))
-  r = gmpy2.bit_set(r, n - 1)
-  return int(gmpy2.next_prime(r))
+@exporter.export('privacy.compute_dp_sgd_privacy')
+def compute_dp_sgd_privacy(mini_batch_size, micro_batch_size, noise_multiplier, epochs, delta=1e-5):
+  return cdsp(mini_batch_size, micro_batch_size, noise_multiplier, epochs, delta)[0]

@@ -13,8 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
-import efl
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
-efl.privacy.generate_paillier_key("public_key.json", "private_key.json")
+from enum import Enum
+from efl import exporter
 
+
+@exporter.export('privacy.Role')
+class Role(Enum):
+  SENDER = 0
+  RECEIVER = 1
+
+@exporter.export('secret_sharing.matmul.Mode')
+class SecretSharingMatmulMode(Enum):
+  A = 0
+  B = 1
+  C = 2

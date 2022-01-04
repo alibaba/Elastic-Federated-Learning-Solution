@@ -17,21 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
 import copy
-import contextlib
-import multiprocessing
 import collections
 
 import tensorflow.compat.v1 as tf
 
 from tensorflow.python.training import monitored_session
-from tensorflow.python.platform import tf_logging
 from tensorflow.python.framework import ops
-from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import gradients_impl
-from tensorflow.python.ops import io_ops
 
 from efl import exporter
 from efl.hooks import logger_hook
@@ -43,16 +37,18 @@ from efl.framework import session_patch
 from efl.framework.communicator import Communicator
 from efl.framework.common_define import *
 from efl.framework import context
-from efl.utils import column_util, communicator_util
+from efl.utils import communicator_util
 from efl.utils import config
 from efl.utils import func_patcher
 from efl.utils import slice_op
+
+from efl.privacy.paillier import PaillierKeypair, PaillierHook
+from efl.privacy.paillier_layer import dense_send, dense_recv, weight_send, weight_recv
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
 _DEFAULT_OPT_CONFIG = {
   'REDUCE': 'mean',
-  'BACKEND_MODE': 'noise'
 }
 
 @exporter.export("Model")
@@ -389,7 +385,9 @@ class Model(object):
                 [opt.make_session_run_hook(config.is_chief(), num_tokens=0)],
                 mode=MODE.TRAIN,
                 task=task)
-            optimize_ops.append(self._minimize(task, loss, vars_to_compute, opt, **kwargs))
+            opt_op = self._minimize(task, loss, vars_to_compute, opt, **kwargs)
+            if opt_op is not None:
+              optimize_ops.append(opt_op)
           with ops.control_dependencies(optimize_ops):
             add_global_step_op = self.global_step.assign_add(1)
           self.add_train_op(add_global_step_op, task)
@@ -411,7 +409,6 @@ class Model(object):
                   method and decide to whether or not add noise , default value is:
         {
           'REDUCE': 'mean',
-          'BACKEND_MODE': 'noise'
         }
     '''
     ops.add_to_collection(COMPILE_ARGS, kwargs)
@@ -419,6 +416,7 @@ class Model(object):
     self._metric_variables_initializer = control_flow_ops.group([
         v.initializer
         for v in ops.get_collection(ops.GraphKeys.METRIC_VARIABLES)])
+
     return self
 
   def _internal_fit(self, procedure_fn, **kwargs):
@@ -492,7 +490,10 @@ class Model(object):
 @exporter.export("FederalModel")
 class FederalModel(Model):
   r'''abstraction for user defined model'''
-  def __init__(self):
+  def __init__(self, client_thread_num=None,
+               server_thread_num=None,
+               scanning_interval_milliseconds=None,
+               default_timeout_milliseconds=None):
     self._federal_role = config.get_federal_role()
     if self._federal_role not in ('leader', 'follower'):
       raise ValueError("federal_role must be set one of [leader/follower] in FederalModel.")
@@ -500,11 +501,18 @@ class FederalModel(Model):
                                       config.get_task_index(),
                                       config.get_worker_num(),
                                       peer_addr=config.get_peer_addr(),
-                                      local_addr=config.get_local_addr())
+                                      local_addr=config.get_local_addr(),
+                                      client_thread_num=client_thread_num,
+                                      server_thread_num=server_thread_num,
+                                      scanning_interval_milliseconds=scanning_interval_milliseconds,
+                                      default_timeout_milliseconds=default_timeout_milliseconds)
     self._recv_grad_ops = collections.defaultdict(list)
     self._require_grad_ops = collections.defaultdict(list)
     super(FederalModel, self).__init__()
     self._add_communicator_hook()
+    self._keypairs = {}
+    self._paillier_vars_and_lrs = collections.defaultdict(list)
+    self._paillier_outputs = collections.defaultdict(list)
 
   @property
   def recv_grad_ops(self):
@@ -525,7 +533,158 @@ class FederalModel(Model):
   def _add_communicator_hook(self):
     self.add_hooks([self._communicator.hook])
 
+  @property
+  def keypairs(self):
+    return self._keypairs
+
+  def keypair(self, name):
+    return self._keypairs[name]
+
+  def create_keypair(self, name, role, update_step_interval=None, n_bytes=None, a_bytes=None,
+                     reps=None, group_size=None):
+    r'''create a paillier keypair
+    Args:
+      name: Name of keypair.
+      role: SENDER or RECEIVER, Sender will generate keypair and send public key to receiver.
+      update_step_interval: Every update_step_interval steps, sender and receiver updates their keypair.
+      n_bytes: Bytes of public key. The larger it is, the more time decryption and computation costs
+               and the better the privacy protection is.
+      a_bytes: Bytes of a. no more than half of n bytes. The larger it is, the more time encryption costs
+               and the better the privacy protection is.
+      reps: An arg used in prime testing. Prime numbers need to be generated when generating keypair, and
+            we need to check whether the generated numbers are prime. A higher reps value will reduce the
+            chances of a non-prime being identified as a prime. A composite number will be identified as
+            a prime with an asymptotic probability of less than 4^(-reps). Reasonable values of reps are
+            between 15 and 50. A higher reps will increase the prime testing time.
+      group_size: To speed up the calculation of ciphertext, we used the pre-compution tech, the larger
+                  the group_size, the faster the calculation but the more memory is used.
+    '''
+    with tf.control_dependencies(None):
+      keypair = PaillierKeypair()
+      self._keypairs[name] = keypair
+      hook = PaillierHook(keypair, self._communicator, role, name,
+                          update_step_interval=update_step_interval,
+                          n_bytes=n_bytes, a_bytes=a_bytes, reps=reps,
+                          group_size=group_size)
+      self.add_hooks([hook])
+      return keypair
+
+  def paillier_sender_dense(self, inputs, keypair_or_name, prefix, learning_rate, units,
+                            mode=MODE.TRAIN, task=None, name=None, reuse=None, trainable=True):
+    r'''sending side of a paillier_dense layer.
+    Args:
+      inputs: Inputs data of this layer.
+      keypair_or_name: A keypair or keypair's name. this layer uses a keypair to encrypt and decrypt.
+      prefix: every paiilier_dense layer needs a unique prefix shared by both sides.
+      learning_rate: The learning rate of peer's model.
+      units: Positive integer, dimensionality of the output space.
+      mode: MODE.TRAIN if this layer runs during training, MODE.EVAL if this layer runs during evaluating.
+      task: Task that this layer belong to.
+      name: Name of the layer.
+      reuse: Whether to reuse the weights of a previous layer by the same name.
+      trainable: If True, this layer will also run while back propagation.
+    '''
+    if isinstance(keypair_or_name, str):
+      keypair_or_name=self._keypairs[keypair_or_name]
+    outputs, kernel = dense_send(inputs, keypair_or_name, self._communicator, prefix, units,
+                                 name=name, reuse=reuse)
+    if trainable:
+      task = task if task else task_scope.current_task_scope().task
+      if task not in self._paillier_vars_and_lrs:
+        self._paillier_vars_and_lrs[task] = []
+      self._paillier_vars_and_lrs[task].append((kernel, learning_rate))
+    if mode == MODE.TRAIN:
+      if task not in self._paillier_outputs:
+        self._paillier_outputs[task] = []
+      self._paillier_outputs[task].append(outputs)
+    else:
+      self.add_eval_op(outputs, task=task)
+
+  def paillier_recver_dense(self, inputs, keypair_or_name, prefix, learning_rate, units, recv_shape,
+                            task=None, **kwargs):
+    r'''receiving side of a paillier_dense layer.
+    Args:
+      inputs: Inputs data of this layer.
+      keypair_or_name: A keypair or keypair's name. this layer uses a keypair to encrypt and decrypt.
+      prefix: every paiilier_dense layer needs a unique prefix shared by both sides.
+      learning_rate: The learning rate of this layer.
+      units: Positive integer, dimensionality of the output space.
+      task: Task that this layer belong to.
+      **kwargs: Contains all Args in tf.dense.
+    '''
+    if isinstance(keypair_or_name, str):
+      keypair_or_name=self._keypairs[keypair_or_name]
+    trainable = kwargs.pop('trainable', True)
+    outputs, kernel = dense_recv(inputs, keypair_or_name, self._communicator, prefix, recv_shape, units,
+                                 **kwargs)
+    if trainable:
+      task = task if task else task_scope.current_task_scope().task
+      if task not in self._paillier_vars_and_lrs:
+        self._paillier_vars_and_lrs[task] = []
+      self._paillier_vars_and_lrs[task].append((kernel, learning_rate))
+    return outputs
+
+  def paillier_sender_weight(self, inputs, keypair_or_name, prefix, learning_rate, units,
+                             mode=MODE.TRAIN, task=None, trainable=True):
+    r'''sending side of a paillier_weight layer.
+    Args:
+      inputs: Inputs data of this layer.
+      keypair_or_name: A keypair or keypair's name. this layer uses a keypair to encrypt and decrypt.
+      prefix: every paiilier_weight layer needs a unique prefix shared by both sides.
+      learning_rate: The learning rate of peer's model.
+      units: Dimensionality of the output space.
+      mode: MODE.TRAIN if this layer runs during training, MODE.EVAL if this layer runs during evaluating.
+      task: Task that this layer belong to.
+      trainable: If True, this layer will also run while back propagation.
+    '''
+    if isinstance(keypair_or_name, str):
+      keypair_or_name=self._keypairs[keypair_or_name]
+    outputs, kernel = weight_send(inputs, keypair_or_name, self._communicator, prefix, units)
+    if trainable:
+      task = task if task else task_scope.current_task_scope().task
+      if task not in self._paillier_vars_and_lrs:
+        self._paillier_vars_and_lrs[task] = []
+      self._paillier_vars_and_lrs[task].append((kernel, learning_rate))
+    if mode == MODE.TRAIN:
+      if task not in self._paillier_outputs:
+        self._paillier_outputs[task] = []
+      self._paillier_outputs[task].append(outputs)
+    else:
+      self.add_eval_op(outputs, task=task)
+
+  def paillier_recver_weight(self, inputs, keypair_or_name, prefix, learning_rate, units,
+                             task=None, kernel_initializer=None, trainable=True):
+    r'''receiving side of a paillier_weight layer.
+    Args:
+      inputs: Inputs data of this layer.
+      keypair_or_name: A keypair or keypair's name. this layer uses a keypair to encrypt and decrypt.
+      prefix: every paiilier_dense layer needs a unique prefix shared by both sides.
+      learning_rate: The learning rate of this layer.
+      units: Positive integer, dimensionality of the output space.
+      task: Task that this layer belong to.
+      kernel_initializer: Initializer function for the weight matrix.
+      trainable: If True, this layer will also run while back propagation.
+    '''
+    if isinstance(keypair_or_name, str):
+      keypair_or_name=self._keypairs[keypair_or_name]
+    outputs, kernel = weight_recv(inputs, keypair_or_name, self._communicator, prefix, units,
+                                  kernel_initializer=kernel_initializer)
+    if trainable:
+      task = task if task else task_scope.current_task_scope().task
+      if task not in self._paillier_vars_and_lrs:
+        self._paillier_vars_and_lrs[task] = []
+      self._paillier_vars_and_lrs[task].append((kernel, learning_rate))
+    return outputs
+
   def send(self, name, tensor, require_grad=False, mode=MODE.TRAIN, task=None):
+    r''' send a tensor to peer.
+    Args:
+      name: Tensor's name.
+      tensor: Tensor to send.
+      require_grad: True if you need to receiver tensor's gradient from peer in back propagation.
+      mode: MODE.TRAIN if this op runs during training, MODE.EVAL if this op runs during evaluating.
+      task: Task that this op belong to.
+    '''
     task = task if task else task_scope.current_task_scope().task
     send_op = self._communicator.send(name, tensor)
     if mode == MODE.TRAIN:
@@ -533,15 +692,23 @@ class FederalModel(Model):
     else:
       self.add_eval_op(send_op, task=task)
     if require_grad:
-      recv_grad = self.recv(name + '_grad', tensor.dtype)
+      recv_grad = self.recv(name + '_grad', dtype=tensor.dtype)
       if task not in self._require_grad_ops:
         self._require_grad_ops[task] = []
       self._require_grad_ops[task].append((tensor, recv_grad))
     return send_op
 
-  def recv(self, name, dtype=tf.float32, require_grad=False, task=None):
+  def recv(self, name, shape=None, dtype=tf.float32, require_grad=False, task=None):
+    r'''
+    Args:
+      name: Tensor's name.
+      shape: Tensor's shape.
+      dtype: Tensor's dtype.
+      require_grad: True if you need to send tensor's gradient to peer in back propagation.
+      task: Task that this op belong to.
+    '''
     task = task if task else task_scope.current_task_scope().task
-    recv_tensor = self._communicator.recv(name, dtype)
+    recv_tensor = self._communicator.recv(name, shape=shape, dtype=dtype)
     if require_grad:
       if task not in self._recv_grad_ops:
         self._recv_grad_ops[task] = []
@@ -557,38 +724,40 @@ class FederalModel(Model):
     send_ops = [i[0] for i in send_recv_grad_list]
     recv_grad_ops = [i[1] for i in send_recv_grad_list]
     opt_config = kwargs.pop('opt_config', _DEFAULT_OPT_CONFIG)
+    paillier_vars_and_lrs = self._paillier_vars_and_lrs[task]
+    paillier_outputs = self._paillier_outputs[task]
 
-    if loss in send_ops:
+    if loss in paillier_outputs:
+      loss = paillier_outputs
+      grad_loss = [None for _ in paillier_outputs]
+    elif loss in send_ops:
       loss = send_ops
       grad_loss = recv_grad_ops
     else:
       if 'opt_config' not in opt.compute_gradients.__code__.co_varnames:
         loss = self._reduce_loss(loss, opt_config.pop('REDUCE', 'mean'))
-      loss = [loss] + send_ops
-      grad_loss = [None] + recv_grad_ops
+      loss = [loss] + send_ops + paillier_outputs
+      grad_loss = [None] + recv_grad_ops + [None for _ in paillier_outputs]
 
     if len(recv_grads) > 0:
-      if opt_config.pop('BACKEND_MODE', 'noise') == 'noise':
-        grads_lists = []
-        for y, g in zip(loss, grad_loss):
-          if y is None:
-            continue
-          if 'opt_config' not in opt.compute_gradients.__code__.co_varnames:
-            grads = opt.compute_gradients(y, [v for _, v in recv_grads], grad_loss=g)
-          else:
-            grads = opt.compute_gradients(y, [v for _, v in recv_grads], grad_loss=g,
-                                          opt_config=opt_config)
-          grads = [g for g, _ in grads]
-          grads_lists.append(grads)
+      grads_lists = []
+      for y, g in zip(loss, grad_loss):
+        if y is None:
+          continue
+        if 'opt_config' not in opt.compute_gradients.__code__.co_varnames:
+          grads = opt.compute_gradients(y, [v for _, v in recv_grads], grad_loss=g)
+        else:
+          grads = opt.compute_gradients(y, [v for _, v in recv_grads], grad_loss=g,
+                                        opt_config=opt_config)
+        grads = [g for g, _ in grads]
+        grads_lists.append(grads)
 
-        send_grads = None
-        for l in grads_lists:
-          if send_grads is None:
-            send_grads = l
-          else:
-            send_grads = tf.nest.map_structure(tf.add, send_grads, l)
-      else:
-        send_grads = gradients_impl.gradients(loss, [v for _, v in recv_grads], grad_ys=grad_loss)
+      send_grads = None
+      for l in grads_lists:
+        if send_grads is None:
+          send_grads = l
+        else:
+          send_grads = tf.nest.map_structure(tf.add, send_grads, l)
 
       for (name, v), grad in zip(recv_grads, send_grads):
         if grad is not None:
@@ -605,31 +774,45 @@ class FederalModel(Model):
       return slice_op.slice_add(a, b)
 
 
-    try:
-      grads_lists = []
-      for y, g in zip(loss, grad_loss):
-        if y is None:
-          continue
-        if 'opt_config' not in opt.compute_gradients.__code__.co_varnames:
-          grads = opt.compute_gradients(y, var_list, grad_loss=g)
-        else:
-          grads = opt.compute_gradients(y, var_list, grad_loss=g,
-                                        opt_config=opt_config)
-        grads = [g for g, _ in grads]
-        grads_lists.append(grads)
+    grads_lists = []
+    varlen = len(var_list)
+    paillier_vars = [var for var, _ in paillier_vars_and_lrs]
+    var_list = var_list + paillier_vars
+    if len(var_list) == 0:
+      return None
+    for y, g in zip(loss, grad_loss):
+      if y is None:
+        continue
+      if 'opt_config' not in opt.compute_gradients.__code__.co_varnames:
+        grads = opt.compute_gradients(y, var_list, grad_loss=g)
+      else:
+        grads = opt.compute_gradients(y, var_list, grad_loss=g,
+                                      opt_config=opt_config)
+      grads = [g for g, _ in grads]
+      grads_lists.append(grads)
 
-      grads_list = None
-      for l in grads_lists:
-        if grads_list is None:
-          grads_list = l
-        else:
-          grads_list = tf.nest.map_structure(_safe_slice_add, grads_list, l)
+    grads = None
+    for l in grads_lists:
+      if grads is None:
+        grads = l
+      else:
+        grads = tf.nest.map_structure(_safe_slice_add, grads, l)
 
-      grads_and_vars = list(zip(grads_list, var_list))
-      return  opt.apply_gradients(grads_and_vars)
-    except ValueError as e:
-      tf.logging.warn(e + ' This warning may be caused by either legal or illegal action. Please confirm.')
-      return
+    ops = []
+    if varlen > 0 and grads is not None:
+      var_list = var_list[:varlen]
+      grad_list = grads[:varlen]
+      grads_and_vars = list(zip(grad_list, var_list))
+      ops = [opt.apply_gradients(grads_and_vars)]
+
+    paillier_opt = tf.train.GradientDescentOptimizer(1.)
+    if len(paillier_vars) > 0:
+      paillier_grads = grads[varlen:]
+      lrs = [lr for _, lr in paillier_vars_and_lrs]
+      paillier_grads = [lr * grad for lr, grad in zip(lrs, paillier_grads)]
+      grads_and_vars = list(zip(paillier_grads, paillier_vars))
+      ops.append(paillier_opt.apply_gradients(grads_and_vars))
+    return tf.group(ops)
 
   def fit(self,
           procedure_fn,
@@ -641,3 +824,4 @@ class FederalModel(Model):
     self._create_stage_mgr(project_name)
     self._internal_fit(procedure_fn,
                        **kwargs)
+

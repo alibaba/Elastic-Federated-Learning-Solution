@@ -23,6 +23,6 @@ MODE = enum.Enum('MODE', ('TRAIN', 'EVAL'))
 
 STAGE_WAIT_RATIO = 'stage_wait_ratio'
 STAGE_TIMEOUT = 'stage_timeout'
-DEFAULT_STAGE_TIMEOUT = 600000 #millisecond
-STAGE_CHECK_INTERVAL = 10000 #millisecond
 COMPILE_ARGS = 'compile_args'
+DEFAULT_STAGE_TIMEOUT = 600 # seconds
+STAGE_CHECK_INTERVAL = 10 # seconds

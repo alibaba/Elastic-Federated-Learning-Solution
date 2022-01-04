@@ -80,9 +80,13 @@ class Communicator(object):
   def send(self, name, tensor):
     return fed_ops.send_tensor(self._handler, tensor, self._local_step[self._worker_index], name)
 
-  def recv(self, name, dtype=tf.float32):
+  def recv(self, name, shape=None, dtype=tf.float32):
     self._recv_set.add(name)
-    return fed_ops.receive_tensor(self._handler, self._local_step[self._worker_index], name, dtype)
+    t = fed_ops.receive_tensor(self._handler, self._local_step[self._worker_index], name, dtype)
+    if shape is None:
+      return t
+    else:
+      return tf.reshape(t, shape=shape)
 
   def send_ckpt_version(self, sess, version):
     sess.run(self._send_ckpt_op, feed_dict={self._version_ph: version})
