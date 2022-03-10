@@ -34,7 +34,7 @@ kubectl create secret tls tls-secret --key ./deploy/quickstart/tls.key --cert ./
 
 ### 镜像构建
 
-根据需要以及k8s ECS资源设置${EFLS}/deploy/quickstart/flink_pod_template.yaml的参数
+根据需要以及k8s ECS资源设置efls_data/deploy/quickstart/flink_pod_template.yaml的参数
 
 ```bash
 sudo docker build -t efls-data:v1 -f ./Dockerfile ./

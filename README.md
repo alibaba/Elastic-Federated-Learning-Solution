@@ -59,4 +59,9 @@ We propose a feature fusion method based on horizontal aggregation and a feature
 
 Users can design training algorithms according to their own needs for federated learning training.
 
-
+## EFLS-data Role Map
+|   | normal |RSA-PSI|ecdh-PSI|
+|---|:---:|:---:|:---:|
+| batch  | 1 | 0 | 0 |
+| streaming  | 0 | 0 | 0 |
+| Single server processing multiple clients | 0 | 0 | 0 |

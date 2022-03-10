@@ -192,9 +192,12 @@ class data_join_pipeline_local_no_tf(object):
                  batch_size: int,
                  file_part_size: int,
                  tls_crt_path: str,
+                 rsa_pub_path: str,
+                 rsa_pri_path: str,
                  wait_s: int = 1800,
                  use_psi: bool = False,
                  need_sort: bool = False,
+                 inputfile_type: str = 'tfrecord',
                  conf: dict = {}):
         self._input_path = input_path
         self._output_path = output_path
