@@ -250,52 +250,15 @@ class ClientPsiJoinFunc(ClientSortJoinFunc):
 
   def __init__(self, job_name: str, peer_host: str, peer_ip: str, peer_port: int, bucket_num: int = 64,
                cmp_func=record_cmp, sample_store_cls=DictSampleKvStore, batch_size: int = 2048, wait_s: int = 1800,
-               tls_crt: str = '', run_mode: RunMode = RunMode.LOCAL):
-    super().__init__(job_name, peer_host, peer_ip, peer_port, bucket_num, cmp_func, sample_store_cls, batch_size,
-                     wait_s, tls_crt, run_mode)
+               tls_crt: str = '', client2multiserver: int = 1, inputfile_type: str = 'tfrecord', run_mode: RunMode = RunMode.LOCAL, db_root_path='/tmp'):
+    #The PSI version will be updated later
+    raise NotImplementedError('Method not implemented!')
 
   def open(self, runtime_context: RuntimeContext):
-    return super().open(runtime_context)
+    raise NotImplementedError('Method not implemented!')
 
   def on_timer(self, timestamp: int, ctx: 'KeyedProcessFunction.OnTimerContext'):
-    s = self._state.value()
-    if timestamp >= s + self._delay:
-      keys_to_join = sorted(self._sample_store.keys(), key=cmp_to_key(self._cmp_func))
-      client = create_data_join_client(host=self._peer_host,
-                                       ip=self._peer_ip,
-                                       port=self._peer_port,
-                                       job_name=self._job_name,
-                                       bucket_id=ctx.get_current_key(),
-                                       run_mode=self._run_mode,
-                                       tls_crt=self._tls_crt)
-      check_sum = CheckSum()
-      client.wait_ready(timeout=self._wait_s)
-      log.info("PSI Client Begin to fetch public key！")
-      pub_key_bytes = client.request_public_key_from_server()
-      self._rsa_signer = ClientRsaSigner(pub_key_bytes)
-      log.info("PSI Client Begin to fetch public key OK！")
-      log.info(
-        "PSI Client begin to join, bucket id:{}, all size:{}, unique size:{}".format(ctx.get_current_key(),
-                                                                                     self.cnt,
-                                                                                 len(keys_to_join)))
-      cur = 0
-      while cur < len(keys_to_join):
-        end = min(cur + self._batch_size, len(keys_to_join))
-        request_ids = keys_to_join[cur:end]
-        signed_request_ids = self._rsa_signer.sign_func(request_ids, client)
-        existence = client.sync_join(signed_request_ids)
-        signed_res_ids = utils.gather_res(signed_request_ids, existence=existence)
-        res_ids = utils.gather_res(request_ids, existence=existence)
-        check_sum.add_list(signed_res_ids)
-        cur = end
-        for i in res_ids:
-          yield str(ctx.get_current_key()), self._sample_store.get(i)
-        log.info("client sync join current idx: {}, all: {}".format(cur, len(keys_to_join)))
-      log.info("End join, checkSum:{}".format(check_sum.get_check_sum()))
-      res = client.finish_join(check_sum.get_check_sum())
-      self._sample_store.clear()
-      if not res:
-        raise ValueError("Join finish error")
+    raise NotImplementedError('Method not implemented!')
 
 
 class ServerSortJoinFunc(KeyedProcessFunction):
@@ -381,49 +344,17 @@ class ServerPsiJoinFunc(ServerSortJoinFunc):
           sample_store_cls=DictSampleKvStore,
           batch_size: int = 2048,
           wait_s: int = 1800,
-          run_mode: RunMode = RunMode.LOCAL):
-    super().__init__(job_name, port, bucket_num, cmp_func, sample_store_cls, batch_size, wait_s, run_mode)
-    self._rsa_signer = ServerRsaSigner()
-
-  def open(self, runtime_context: RuntimeContext):
-    super().open(runtime_context)
-    self._rsa_signer = ServerRsaSigner()
+          rsa_public_key_bytes: str = '',
+          rsa_private_key_bytes: str = '',
+          inputfile_type: str = 'tfrecord',
+          run_mode: RunMode = RunMode.LOCAL,
+          db_root_path: str = '/tmp'):
+    super().__init__(job_name, port, bucket_num, cmp_func, sample_store_cls, batch_size, wait_s,
+                    rsa_public_key_bytes, rsa_private_key_bytes, inputfile_type, run_mode, db_root_path)
+    raise NotImplementedError('Method not implemented!')
 
   def process_element(self, value, ctx: 'ProcessFunction.Context'):
-    s = self._state.value()
-    cur = ctx.timestamp() // 1000 * 1000
-    if s is None or cur > s:
-      self._state.update(cur)
-      ctx.timer_service().register_event_time_timer(cur + self._delay)
-    key = self._rsa_signer.sign_func([get_sample_store_key(value[0], value[1])])
-    self._sample_store.put(key[0],
-                           value[2])
-    self.cnt += 1
+    raise NotImplementedError('Method not implemented!')
 
   def on_timer(self, timestamp: int, ctx: 'KeyedProcessFunction.OnTimerContext'):
-    s = self._state.value()
-    if timestamp >= s + self._delay:
-      # create join server and wait
-      data_join_server, _, k8s_resouce_handler = create_data_join_server(
-        port=self._port,
-        job_name=self._job_name,
-        bucket_id=ctx.get_current_key(),
-        sample_kv_store=self._sample_store,
-        run_mode=self._run_mode,
-        use_psi=True,
-        signer=self._rsa_signer
-      )
-      data_join_server.set_is_ready(True)
-      # server wait for 1h
-      log.info("PSI DataJoinServer for bucket {} has been ready, "
-               "unique key size: {}, all key size:{}"
-               .format(ctx.get_current_key(), self._sample_store.size(), self.cnt))
-      data_join_server.wait_for_finish(timeout=self._wait_s)
-      log.info("PSI DataJoinServer for bucket {} finished! "
-               "Begin to write sample".format(ctx.get_current_key()))
-      for l in data_join_server.get_final_result():
-        for i in l:
-          yield str(ctx.get_current_key()), self._sample_store.get(i)
-      self._sample_store.clear()
-      if self._run_mode == RunMode.K8S:
-        k8s_resouce_handler.delete()
+    raise NotImplementedError('Method not implemented!')
