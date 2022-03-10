@@ -16,3 +16,5 @@ cardinality~=0.1.1
 gmpy2
 cityhash
 tensorflow-io==0.8.1
+redis
+plyvel==1.4.0

@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-import  os
+import os
 from typing import List
 import tensorflow_io
 import tensorflow as tf

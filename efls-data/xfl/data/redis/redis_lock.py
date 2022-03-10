@@ -13,18 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
+import redis
 
-from typing import List
-from xfl.data.local_join import utils
+class RedisLock(object):
+  def __init__(self, name, conn=redis.StrictRedis(host='redis')):
+    self._name = name
+    self._lock = conn.lock(name=name)
 
+  def acquire(self, blocking=None, blocking_timeout=None):
+    return self._lock.acquire(blocking=blocking, blocking_timeout=blocking_timeout)
 
-class FileSharding(object):
-  def shard(self, worker_idx, worker_num, input_path, output_path) -> List[tuple]:
-    shards_to_process = []
-    utils.assert_valid_dir(input_path)
-    input_files = utils.list_data_file_recursively(input_path)
-    for i, f in enumerate(input_files):
-      if i % worker_num == worker_idx:
-        o_file_path = f.replace(input_path.rstrip("/"), output_path.rstrip("/"), 1)
-        shards_to_process.append((f, o_file_path))
-    return shards_to_process
+  def release(self):
+    self._lock.release()
