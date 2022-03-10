@@ -22,19 +22,21 @@ from pyflink.datastream.execution_mode import RuntimeExecutionMode
 
 from xfl.common.common import RunMode
 from xfl.common.logger import log
-from xfl.data.connectors import tf_record_sink, tf_record_keyed_source
+from xfl.data.connectors import input_sink, input_keyed_source
 from xfl.data.functions import DefaultKeySelector, ClientSortJoinFunc, ServerSortJoinFunc, ServerPsiJoinFunc, \
   ClientPsiJoinFunc, ClientBatchJoinFunc
 from xfl.data.store.sample_kv_store import DictSampleKvStore
 from xfl.data.store.flink_state_kv_store import FlinkStateKvStore
 from xfl.data.store.etcd_kv_store import EtcdSampleKvStore
+from xfl.data.store.level_db_kv_store import LevelDbKvStore
 
 TYPE_BYTE_ARRAY = Types.PRIMITIVE_ARRAY(Types.BYTE())
 
 SAMPLE_STORE_TYPE = {
   "memory": DictSampleKvStore,
   "state": FlinkStateKvStore,
-  "etcd": EtcdSampleKvStore
+  "etcd": EtcdSampleKvStore,
+  "leveldb": LevelDbKvStore
 }
 
 def get_flink_batch_env(conf: dict = {}) -> StreamExecutionEnvironment:
@@ -63,25 +65,48 @@ class data_join_pipeline(object):
                batch_size: int,
                file_part_size: int,
                tls_crt_path: str,
+               rsa_pub_path: str,
+               rsa_pri_path: str,
                wait_s: int = 1800,
                use_psi: bool = False,
                need_sort: bool = False,
+               db_root_path: str = '/tmp',
+               inputfile_type: str = 'tfrecord',
+               loaddata_parallelism: int = 0,
+               client2multiserver: int = 1,
                conf: dict = {}):
     self._job_name = job_name
     env = get_flink_batch_env(conf)
-    env.set_max_parallelism(bucket_num)
+    self._loaddata_parallelism = loaddata_parallelism
+    if self._loaddata_parallelism == 0:
+      self._loaddata_parallelism = bucket_num
+    env.set_max_parallelism(max(bucket_num, self._loaddata_parallelism))
     env.set_parallelism(bucket_num)
     ds = env.from_source(
-      source=tf_record_keyed_source(input_path, hash_col_name, sort_col_name),
+      source=input_keyed_source(input_path, hash_col_name, sort_col_name, inputfile_type),
       watermark_strategy=WatermarkStrategy.for_monotonous_timestamps(),
       type_info=Types.TUPLE([TYPE_BYTE_ARRAY] * 3),
-      source_name=job_name + "_tf_record_source_with_key")
+      source_name=job_name + "_tf_record_source_with_key").set_parallelism(self._loaddata_parallelism)
 
     tls_crt = b''
     if tls_crt_path is not None:
       with open(tls_crt_path, 'rb') as f:
         tls_crt = f.read()
         log.info("tls path:{} \n tls value:{}".format(tls_crt_path, tls_crt))
+    rsa_pub = b''
+    if rsa_pub_path is not None:
+      with open(rsa_pub_path, 'rb') as f:
+        rsa_pub = f.read()
+        log.info("rsa_pub path:{} \n rsa_pub value:{}".format(rsa_pub_path, rsa_pub))
+    rsa_pri = b''
+    if rsa_pri_path is not None:
+      with open(rsa_pri_path, 'rb') as f:
+        rsa_pri = f.read()
+        log.info("rsa_pri path:{} \n rsa_pri value:{}".format(rsa_pri_path, rsa_pri))
+    output_type=Types.ROW([Types.STRING(), TYPE_BYTE_ARRAY])
+    if inputfile_type == 'csv':
+      output_type=Types.ROW([Types.STRING(), Types.STRING()])
+
     if is_server:
       if use_psi:
         server_func = ServerPsiJoinFunc
@@ -95,8 +120,12 @@ class data_join_pipeline(object):
         sample_store_cls=SAMPLE_STORE_TYPE[sample_store_type],
         wait_s=wait_s,
         run_mode=RunMode(run_mode),
-        batch_size=batch_size),
-        output_type=Types.ROW([Types.STRING(), TYPE_BYTE_ARRAY])) \
+        batch_size=batch_size,
+        rsa_public_key_bytes=rsa_pub,
+        rsa_private_key_bytes=rsa_pri,
+        inputfile_type=inputfile_type,
+        db_root_path=db_root_path),
+        output_type=output_type) \
         .name(job_name + "_merge_sort_join_server")
     else:
       if use_psi:
@@ -107,7 +136,7 @@ class data_join_pipeline(object):
           client_func = ClientSortJoinFunc
         else:
           client_func = ClientBatchJoinFunc
-      ds = ds.key_by(DefaultKeySelector(bucket_num=bucket_num), key_type=Types.INT()) \
+      ds = ds.key_by(DefaultKeySelector(bucket_num=bucket_num, client2multiserver=client2multiserver), key_type=Types.INT()) \
         .process(client_func(
         job_name=job_name,
         peer_host=host,
@@ -118,11 +147,14 @@ class data_join_pipeline(object):
         batch_size=batch_size,
         run_mode=RunMode(run_mode),
         wait_s=wait_s,
-        tls_crt=tls_crt),
-        output_type=Types.ROW([Types.STRING(), TYPE_BYTE_ARRAY])) \
+        tls_crt=tls_crt,
+        client2multiserver=client2multiserver,
+        inputfile_type=inputfile_type,
+        db_root_path=db_root_path),
+        output_type=output_type) \
         .name(job_name + "_merge_sort_join_cli")
 
-    ds.sink_to(tf_record_sink(output_path, 0, 1, part_size=file_part_size))
+    ds.sink_to(input_sink(output_path, 0, 1, part_size=file_part_size, inputfile_type=inputfile_type))
     self._env = env
 
   def run(self):

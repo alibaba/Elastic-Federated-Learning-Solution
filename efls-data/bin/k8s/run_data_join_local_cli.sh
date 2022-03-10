@@ -12,7 +12,7 @@ python -m xfl.data.main.run_data_join \
     --output_path=${OUTPUT_DIR} \
     --job_name=${JOB_NAME} \
     --host='www.alibaba.com' \
-    --port=32443 \
+    --port=443 \
     --ingress_ip='101.200.147.60' \
     --bucket_num=${BUCKET_NUM} \
     --run_mode='k8s' \

@@ -25,26 +25,31 @@ class AuxTable(object):
     self.path = path
     self.key_col = key_col
     self.store = {}
+    self._inited = False
   def open(self):
-    utils.assert_valid_dir(path=self.path)
-    files = utils.list_data_file_recursively(self.path)
-    for f in files:
-      if not gfile.Exists(f):
-        raise RuntimeError("path {} does not exist. please check your config!".format(f))
-      dataset = tf.data.TFRecordDataset(f)
-      for raw_record in dataset:
-        example = tf.train.Example()
-        example.ParseFromString(raw_record.numpy())
-        if self.key_col not in example.features.feature:
-          raise RuntimeError("key col {} is not in input record, please check your data.".format(self.key_col))
-        if not example.features.feature[self.key_col].WhichOneof('kind') == 'bytes_list':
-          raise RuntimeError(
-            "key col {} type must be bytes_list, but got {}".format(self.key_col, example.features.feature[self.key_col].WhichOneof('kind')))
-        if not len(example.features.feature[self.key_col].bytes_list.value) == 1:
-          raise RuntimeError(
-            "key col {} length must be 1, but got {}".format(self.key_col, len(example.features.feature[self.key_col].bytes_list.value)))
-        self.store[example.features.feature[self.key_col].bytes_list.value[0]] = raw_record.numpy()
-    log.info("Aux table {} load successfully, size:{}".format(self.path, len(self.store)))
+    if not self._inited:
+      utils.assert_valid_dir(path=self.path)
+      files = utils.list_data_file_recursively(self.path)
+      for f in files:
+        if not gfile.Exists(f):
+          raise RuntimeError("path {} does not exist. please check your config!".format(f))
+        dataset = tf.data.TFRecordDataset(f)
+        for raw_record in dataset:
+          example = tf.train.Example()
+          example.ParseFromString(raw_record.numpy())
+          if self.key_col not in example.features.feature:
+            raise RuntimeError("key col {} is not in input record, please check your data.".format(self.key_col))
+          if not example.features.feature[self.key_col].WhichOneof('kind') == 'bytes_list':
+            raise RuntimeError(
+              "key col {} type must be bytes_list, but got {}".format(self.key_col, example.features.feature[self.key_col].WhichOneof('kind')))
+          if not len(example.features.feature[self.key_col].bytes_list.value) == 1:
+            raise RuntimeError(
+              "key col {} length must be 1, but got {}".format(self.key_col, len(example.features.feature[self.key_col].bytes_list.value)))
+          self.store[example.features.feature[self.key_col].bytes_list.value[0]] = raw_record.numpy()
+      log.info("Aux table {} load successfully, size:{}".format(self.path, len(self.store)))
+      self._inited = True
+    else:
+      log.info("Aux table {} has been inited. skip it!".format(self.path))
 
 
   def get(self, key):

@@ -50,6 +50,8 @@ class model_thread(threading.Thread):
                  jar='file:///xfl/lib/efls-flink-connectors-1.0-SNAPSHOT.jar',
                  run_mode='local',
                  tls_crt_path=None,
+                 rsa_pub_path=None,
+                 rsa_pri_path=None,
                  wait_s=1800,
                  use_psi=False,
                  need_sort=True):
@@ -72,15 +74,18 @@ class model_thread(threading.Thread):
             batch_size=batch_size,
             file_part_size=file_part_size,
             tls_crt_path=tls_crt_path,
+            rsa_pub_path=rsa_pub_path,
+            rsa_pri_path=rsa_pri_path,
             wait_s=wait_s,
             use_psi=use_psi,
             need_sort=need_sort,
+            db_root_path='/opt',
             conf=conf)
 
     def run(self):
         self.pipeline.run()
 
-def run_client_and_server():
+def run_client_and_server(sample_store_type, use_psi, need_sort=True):
     if os.path.exists(client_result_path):
         shutil.rmtree(client_result_path)
     if os.path.exists(server_result_path):
@@ -88,11 +93,17 @@ def run_client_and_server():
     print("Server startup")
     server_thread = model_thread('TEST_DATA_JOIN_SERVER', True,
                                  server_data_path, server_result_path,
-                                 'example_id', 'example_id', 8)
+                                 'example_id', 'example_id', 8,
+                                 sample_store_type=sample_store_type,
+                                 use_psi=use_psi,
+                                 need_sort=need_sort)
     print("Client startup")
     client_thread = model_thread('TEST_DATA_JOIN_CLI', False,
                                  client_data_path, client_result_path,
-                                 'example_id', 'example_id', 8)
+                                 'example_id', 'example_id', 8,
+                                 sample_store_type=sample_store_type,
+                                 use_psi=use_psi,
+                                 need_sort=need_sort)
 
     server_thread.start()
     client_thread.start()
@@ -168,11 +179,30 @@ def result_judge(data_common):
 
 class TestPsiDataJoin(unittest.TestCase):
     def setUp(self):
+        print("setup make data...")
         self._data_common = make_data()
 
-    def test_psi_join(self):
-        run_client_and_server()
+    def test_join(self):
+        print('test common join...')
+        run_client_and_server(sample_store_type='memory', use_psi=False)
         result_judge(self._data_common)
+
+    def test_join_with_level_db(self):
+        print('test leveldb join...')
+        run_client_and_server(sample_store_type='leveldb', use_psi=False)
+        result_judge(self._data_common)
+
+    def test_join_with_level_db(self):
+        print('test leveldb psi join...')
+        run_client_and_server(sample_store_type='leveldb', use_psi=True)
+        result_judge(self._data_common)
+
+    def tearDown(self):
+        print("tearDown, remove tmp data...")
+        shutil.rmtree(client_result_path)
+        shutil.rmtree(server_result_path)
+        shutil.rmtree(client_data_path)
+        shutil.rmtree(server_data_path)
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)
