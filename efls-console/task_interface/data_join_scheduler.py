@@ -35,50 +35,65 @@ class DatajoinScheduler():
     def _check_job_config(self, job_config):
         if get_config(job_config, 'job_name') is None:
             raise ValueError('job_name must be set.')
-        if get_config(job_config, 'bucket_num') is None:
-            raise ValueError('bucket_num must be set.')
-        if get_config(job_config, 'hash_col_name') is None:
-            raise ValueError('hash_col_name must be set.')
-        if get_config(job_config, 'sort_col_name') is None:
-            raise ValueError('sort_col_name must be set.')
-        if get_config(job_config, 'run_mode') is None:
-            raise ValueError('run_mode must be set.')
-        if get_config(job_config, 'batch_size') is None:
-            raise ValueError('batch_size must be set.')
-        if get_config(job_config, 'file_part_size') is None:
-            raise ValueError('file_part_size must be set.')
         if get_config(job_config, 'input_path') is None:
             raise ValueError('input_path must be set.')
         if get_config(job_config, 'output_path') is None:
             raise ValueError('output_path must be set.')
-        if get_config(job_config, 'is_server') is None:
-            raise ValueError('is_server must be set.')
-        if get_config(job_config, 'flink_claster') is None:
-            raise ValueError('flink_claster must be set.')
-        if get_config(job_config, 'wait_s') is None:
-            raise ValueError('wait_s must be set.')
+        if get_config(job_config, 'docker_image') is None:
+            raise ValueError('docker_image must be set.')
 
-        if get_config(job_config, 'is_server') == 'false' or get_config(job_config, 'is_server') == 'False':
-            if get_config(job_config, 'tls_path') is None:
-                raise ValueError('tls_path must be set.')
-            if get_config(job_config, 'ingress_ip') is None:
-                raise ValueError('ingress_ip must be set.')
-            if get_config(job_config, 'port') is None:
-                raise ValueError('port must be set.')
-            if get_config(job_config, 'host') is None:
-                raise ValueError('host must be set.')
+        if get_config(job_config, 'job_type') == 'feature-inc':
+            if get_config(job_config, 'split_num') is None:
+                raise ValueError('split_num must be set.')
+            if get_config(job_config, 'worker_num') is None:
+                raise ValueError('worker_num must be set.')
+            if get_config(job_config, 'left_key') is None:
+                raise ValueError('left_key must be set.')
+            if get_config(job_config, 'right_key') is None:
+                raise ValueError('right_key must be set.')
+            if get_config(job_config, 'aux_table') is None:
+                raise ValueError('aux_table must be set.')
+        else:
+            if get_config(job_config, 'bucket_num') is None:
+                raise ValueError('bucket_num must be set.')
+            if get_config(job_config, 'hash_col_name') is None:
+                raise ValueError('hash_col_name must be set.')
+            if get_config(job_config, 'sort_col_name') is None:
+                raise ValueError('sort_col_name must be set.')
+            if get_config(job_config, 'run_mode') is None:
+                raise ValueError('run_mode must be set.')
+            if get_config(job_config, 'batch_size') is None:
+                raise ValueError('batch_size must be set.')
+            if get_config(job_config, 'file_part_size') is None:
+                raise ValueError('file_part_size must be set.')
+            if get_config(job_config, 'is_server') is None:
+                raise ValueError('is_server must be set.')
+            if get_config(job_config, 'flink_claster') is None:
+                raise ValueError('flink_claster must be set.')
+            if get_config(job_config, 'wait_s') is None:
+                raise ValueError('wait_s must be set.')
+
+            if get_config(job_config, 'is_server') == 'false' or get_config(job_config, 'is_server') == 'False':
+                if get_config(job_config, 'tls_path') is None:
+                    raise ValueError('tls_path must be set.')
+                if get_config(job_config, 'ingress_ip') is None:
+                    raise ValueError('ingress_ip must be set.')
+                if get_config(job_config, 'port') is None:
+                    raise ValueError('port must be set.')
+                if get_config(job_config, 'host') is None:
+                    raise ValueError('host must be set.')
 
     def _get_job_name(self, job_config):
         job_name = job_config.get('job_name')
         job_suffix = ""
         if get_config(job_config, 'is_server') == 'true' or get_config(job_config, 'is_server') == 'True':
             job_suffix = "-server"
-        else :
+        elif get_config(job_config, 'is_server') == 'false' or get_config(job_config, 'is_server') == 'False':
             job_suffix = "-client"
         job_name = job_name + job_suffix
         return job_name
 
-    def _generate_scheduler_job_config(self, job_config):
+    def _generate_scheduler_datajoin_job_config(self, job_config):
         job_name = self._get_job_name(job_config)
         command = []
         if get_config(job_config, 'is_server') == 'true' or get_config(job_config, 'is_server') == 'True':
@@ -151,9 +166,72 @@ class DatajoinScheduler():
         }
         return scheduler_job_config
 
+    def _generate_scheduler_featureinc_job_config(self, job_config):
+        job_name = self._get_job_name(job_config)
+        command = ["python", "-m", "xfl.data.main.run_wq_local_join",
+                   "--job_name=" + job_config.get('job_name'),
+                   "--input_dir=" + job_config.get('input_path'),
+                   "--output_dir=" + job_config.get('output_path'),
+                   "--split_num=" + job_config.get('split_num')]
+        left_key = job_config.get('left_key').split(",")
+        right_key = job_config.get('right_key').split(",")
+        aux_table = job_config.get('aux_table').split(",")
+        if len(left_key) != len(right_key) or len(left_key) != len(aux_table):
+            raise ValueError('left_key, right_key and aux_table are not equal in length')
+        for i in range(len(left_key)):
+            command.append("--left_key=" + left_key[i])
+            command.append("--right_key=" + right_key[i])
+            command.append("--aux_table=" + aux_table[i])
+        scheduler_job_config = {
+            'apiVersion': 'batch/v1',
+            'kind': 'Job',
+            'metadata': {
+                'name': job_name
+            },
+            'spec': {
+                'parallelism': int(job_config.get('worker_num')),
+                'backoffLimit': 1,
+                'template': {
+                    'spec': {
+                        'restartPolicy': 'Never',
+                        'volumes': [
+                            {
+                                'name': 'nas-pv-storage',
+                                'persistentVolumeClaim': {
+                                    'claimName': 'nas-pvc'
+                                }
+                            }
+                        ],
+                        'imagePullSecrets': [
+                            {
+                                'name': self._docker_secret
+                            }
+                        ],
+                        'containers': [
+                            {
+                                'command': command,
+                                'image': job_config.get('docker_image'),
+                                'name': "worker",
+                                'volumeMounts': [
+                                    {
+                                        'mountPath': '/data',
+                                        'name': 'nas-pv-storage'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        return scheduler_job_config
+
     def create_datajoin_job(self, job_config, namespace='default'):
         self._check_job_config(job_config)
-        job_json = self._generate_scheduler_job_config(job_config)
+        if get_config(job_config, 'job_type') == 'feature-inc':
+            job_json = self._generate_scheduler_featureinc_job_config(job_config)
+        else :
+            job_json = self._generate_scheduler_datajoin_job_config(job_config)
         self._controller.create_job(job_json, namespace=namespace)
 
     def get_job_status(self, job_name, namespace='default'):
