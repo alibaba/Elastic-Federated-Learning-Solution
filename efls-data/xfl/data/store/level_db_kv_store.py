@@ -14,9 +14,9 @@
 # ==============================================================================
 
 import abc
+import plyvel
 from abc import ABCMeta
 from xfl.data.store.sample_kv_store import SampleKvStore
-import plyvel
 
 class LevelDbKvStore(SampleKvStore, metaclass=ABCMeta):
   def __init__(self, path,
@@ -56,3 +56,10 @@ class LevelDbKvStore(SampleKvStore, metaclass=ABCMeta):
   def clear(self):
     self._db.close()
     plyvel.destroy_db(self._path)
+
+  def __iter__(self):
+    self._it = self._db.iterator()
+    return self
+
+  def __next__(self):
+    return next(self._it)[0]

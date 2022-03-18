@@ -60,6 +60,13 @@ class SampleKvStore(object):
   def clear(self):
     ...
 
+  @abc.abstractmethod
+  def __iter__(self):
+    ...
+
+  @abc.abstractmethod
+  def __next__(self):
+    ...
 
 class DictSampleKvStore(SampleKvStore, metaclass=ABCMeta):
   def __init__(self) -> None:
@@ -67,11 +74,8 @@ class DictSampleKvStore(SampleKvStore, metaclass=ABCMeta):
     self._store = {}
 
   def put(self, key, value) -> bool:
-    res = True
-    if key in self._store:
-      res = False
     self._store[key] = value
-    return res
+    return True
 
   def exists(self, ids: list) -> list:
     return [i in self._store for i in ids]
@@ -80,10 +84,17 @@ class DictSampleKvStore(SampleKvStore, metaclass=ABCMeta):
     return self._store.get(key)
 
   def keys(self) -> list:
-    return self._store.keys()
+    return list(self._store.keys())
 
   def size(self) -> int:
     return len(self._store)
 
   def clear(self):
     self._store.clear()
+
+  def __iter__(self):
+    self._it = iter(self._store)
+    return self
+
+  def __next__(self):
+    return next(self._it)

@@ -85,6 +85,10 @@ if __name__ == '__main__':
                       const=True, nargs='?',
                       help="True if this job use rsa-psi method.")
 
+  parser.add_argument('--psi_type', type=str, default='rsa',
+                      choices=['rsa', 'ecdh'],
+                      help='psi join encrpytion type.')
+
   parser.add_argument('--need_sort', type=str_to_bool,
                       const=True, nargs='?',
                       help="True if you need sort samples in client. Sorting samples leeds to high cost of memory")
@@ -136,6 +140,7 @@ if __name__ == '__main__':
     rsa_pri_path=args.rsa_pri_path,
     wait_s=args.wait_s,
     use_psi=args.use_psi,
+    psi_type=args.psi_type,
     need_sort=args.need_sort,
     db_root_path=args.db_root_path,
     inputfile_type=args.inputfile_type,

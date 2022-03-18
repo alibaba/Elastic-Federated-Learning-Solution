@@ -23,7 +23,6 @@ from xfl.common.common import RunMode
 from xfl.common.logger import log
 from xfl.data import utils
 from xfl.data.check_sum import CheckSum
-from xfl.data.psi.rsa_signer import ServerRsaSigner
 from xfl.data.store.sample_kv_store import SampleKvStore
 from xfl.k8s.k8s_client import K8sClient
 from xfl.k8s.k8s_resource import create_data_join_service, release_data_join_service
@@ -76,9 +75,6 @@ class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
     if self._finished.isSet():
       return common_pb2.Status(code=common_pb2.INTERNAL, message='Server has finished!')
 
-    for i in self._joined_res:
-      self._check_sum.add_list(i)
-
     if self._check_sum.get_check_sum() != request.check_sum:
       log.error("CheckSum Error, request :%d, Server :%d", request.check_sum, self._check_sum.get_check_sum())
       return common_pb2.Status(code=common_pb2.INTERNAL, message='CheckSumError, Join Failed')
@@ -94,12 +90,15 @@ class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
     else:
       self._request_cnt += 1
       if self._bucket_id != request.bucket_id:
-        return self._join_response(common_pb2.INVALID_ARGUMENT, '', [])
+        return self._join_response(common_pb2.INVALID_ARGUMENT,
+            'bucket id not match, expect {}, got {}'.format(self._bucket_id, request.bucket_id), [])
       res = self._sample_kv_store.exists(request.ids)
       self._all_cnt += len(request.ids)
       self._hit_cnt += sum(res)
       with self._joined_res_lock:
-        self._joined_res.append(utils.gather_res(request.ids, res))
+        tmp_res = utils.gather_res(request.ids, res)
+        self._joined_res.append(tmp_res)
+        self._check_sum.add_list(tmp_res)
       return self._join_response(common_pb2.OK, '', res)
 
   def AsyncJoin(self, request: data_join_pb2.AsyncJoinRequest, context) -> data_join_pb2.JoinResponse:
@@ -110,7 +109,7 @@ class DataJoinServer(data_join_pb2_grpc.DataJoinServiceServicer):
 
 
 class PsiDataJoinServer(DataJoinServer):
-  def __init__(self, sample_kv_store: SampleKvStore, bucket_id, rsa_signer, is_async_join=False, ):
+  def __init__(self, sample_kv_store: SampleKvStore, bucket_id, rsa_signer, is_async_join=False):
     super().__init__(sample_kv_store, bucket_id, is_async_join)
     assert rsa_signer is not None, "rsa signer should not be None!"
     self.rsa_signer_ = rsa_signer
@@ -128,6 +127,99 @@ class PsiDataJoinServer(DataJoinServer):
       return data_join_pb2.PsiSignResponse(status=common_pb2.Status(code=common_pb2.OK, message=''),
                                            signed_ids=signed_ids)
 
+
+class EcdhDataJoinServer(DataJoinServer):
+  def __init__(self,
+      sample_kv_store: SampleKvStore,
+      bucket_id,
+      ecc_signer,
+      is_async_join=False,
+      pending_max_size=1000,
+      batch_size=2048,
+      signed_id_map: SampleKvStore=None):
+    super().__init__(sample_kv_store, bucket_id, is_async_join)
+    assert ecc_signer is not None, "ecc signer should not be None!"
+    self._ecc_signer = ecc_signer
+    self._cli_sign_lock = threading.Lock()
+    self._pending_max_size = 1000
+    self._data_pending_buffer = {}
+    self._batch_size = batch_size
+    self._data_it = iter(sample_kv_store)
+    self._block_id = 0
+    self._server_data_exhausted = False
+    self._signed_id_map = signed_id_map
+
+
+  def _fetch_a_batch(self):
+    batch = []
+    try:
+      for i in range(self._batch_size):
+        batch.append(next(self._data_it))
+    except StopIteration:
+      pass
+    if batch:
+      self._block_id += 1
+      return self._block_id, batch
+    else:
+      return None, None
+
+  def _all_server_data_ready(self):
+    return self._server_data_exhausted and len(self._data_pending_buffer)==0
+
+  def AcquireServerData(self, option: data_join_pb2.RequestServerOptions, context) -> data_join_pb2.RequestServerRes:
+    block_id, batch = self._fetch_a_batch()
+    if block_id:
+      with self._cli_sign_lock:
+        self._data_pending_buffer[block_id] = batch
+      return data_join_pb2.RequestServerRes(status=common_pb2.Status(code=common_pb2.OK, message=''),
+            signed_ids=batch,
+            block_id=block_id,
+            real_batch_size=len(batch),
+            is_finished=False)
+    else:
+      self._server_data_exhausted = True
+      return data_join_pb2.RequestServerRes(status=common_pb2.Status(code=common_pb2.OK, message=''),
+            signed_ids=[],
+            block_id=0,
+            real_batch_size=0,
+            is_finished=True)
+
+  def SendServerSignedData(self, data_block: data_join_pb2.DataBlock, context) -> common_pb2.Status:
+    block_id = data_block.block_id
+    signed_ids = data_block.data
+    if block_id not in self._data_pending_buffer:
+      return common_pb2.Status(code=common_pb2.INVALID_ARGUMENT, message='unexpected block_id: %d'%block_id)
+    if len(signed_ids) != len(self._data_pending_buffer[block_id]):
+      return common_pb2.Status(code=common_pb2.INVALID_ARGUMENT,
+          message='signed data length error, expected %d, got %d'%(len(self._data_pending_buffer),len(signed_ids)))
+    #update sample store keys
+    buf = self._data_pending_buffer[block_id]
+    for i,k in enumerate(signed_ids):
+      self._signed_id_map.put(k,buf[i])
+    with self._cli_sign_lock:
+      del self._data_pending_buffer[block_id]
+    return common_pb2.Status(code=common_pb2.OK)
+
+  def SyncJoin(self, request: data_join_pb2.JoinRequest, context) -> data_join_pb2.JoinResponse:
+    if not self._ready:
+      return self._join_response(common_pb2.NOT_READY, '', [])
+
+    elif not self._all_server_data_ready:
+      return self._join_response(common_pb2.NOT_READY, 'there is still server data not signed by client', [])
+    else:
+      self._request_cnt += 1
+      if self._bucket_id != request.bucket_id:
+        return self._join_response(common_pb2.INVALID_ARGUMENT,
+            'bucket id not match, expect {}, got {}'.format(self._bucket_id, request.bucket_id), [])
+      #in ecdh, ids should be signed before Join
+      signed_ids = [self._ecc_signer.sign(x) for x in request.ids]
+      res = self._signed_id_map.exists(signed_ids)
+      self._all_cnt += len(request.ids)
+      self._hit_cnt += sum(res)
+      with self._joined_res_lock:
+        self._joined_res.append(utils.gather_res(signed_ids, res))
+        self._check_sum.add_list(utils.gather_res(request.ids, res))
+      return self._join_response(common_pb2.OK, '', res)
 
 class K8sResourceHandler(object):
 
@@ -179,11 +271,24 @@ def create_data_join_server(bucket_id,
                             sample_kv_store: SampleKvStore,
                             use_psi=False,
                             signer=None,
+                            psi_server_type='rsa', #rsa or ecdh
+                            ecdh_id_map: SampleKvStore = None
                             ):
   rpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
   if use_psi:
-    data_join_server = PsiDataJoinServer(sample_kv_store=sample_kv_store, bucket_id=bucket_id,
-                                         rsa_signer=signer)
+    if psi_server_type == 'rsa':
+      data_join_server = PsiDataJoinServer(
+          sample_kv_store=sample_kv_store,
+          bucket_id=bucket_id,
+          rsa_signer=signer)
+    elif psi_server_type == 'ecdh':
+      data_join_server = EcdhDataJoinServer(
+          sample_kv_store=sample_kv_store,
+          bucket_id=bucket_id,
+          ecc_signer=signer,
+          signed_id_map=ecdh_id_map)
+    else:
+      raise RuntimeError('unsupported psi server type: %s'%psi_server_type)
   else:
     data_join_server = DataJoinServer(sample_kv_store=sample_kv_store, bucket_id=bucket_id)
 

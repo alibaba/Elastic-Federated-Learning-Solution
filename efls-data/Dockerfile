@@ -10,9 +10,27 @@ RUN sed -i 's#http://deb.debian.org#https://mirrors.aliyun.com#g' /etc/apt/sourc
     && apt-get -y install libmpfr-dev \
     && apt-get -y install libmpc-dev \
     && apt-get -y install openjdk-8-jdk \
+    && apt-get -y install openssl libssl-dev cmake nasm git \
+    && apt-get -y install  libpcre3 libpcre3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . /xfl
+
+RUN cd /xfl \
+    && wget https://nginx.org/download/nginx-1.20.1.tar.gz \
+    && tar -zxvf nginx-1.20.1.tar.gz && cd ./nginx-1.20.1 \
+    &&./configure --with-http_gzip_static_module --with-http_ssl_module --with-http_stub_status_module --with-stream --with-http_v2_module \
+    && make -j$(nproc) && make install \
+    &&ln -s /usr/local/nginx/sbin/nginx /usr/local/bin/nginx
+
+#Use IPPCP for crypto algorithm with avx512-ifma
+
+#ENV LD_LIBRARY_PATH=/opt/intel/ippcp/lib/intel64
+#ENV LIBRARY_PATH=/opt/intel/ippcp/lib/intel64
+#RUN cd /xfl/third_party/ipp-crypto \
+#    && cmake . -DARCH=intel64 -DCMAKE_INSTALL_PREFIX=/opt/intel/ippcp \
+#    && make -j$(nproc) && make install \
+#    && cd /xfl && mkdir build && cd build && cmake .. && make -j$(nproc)
 
 RUN cd /xfl/xfl-java \
     && wget -q https://archive.apache.org/dist/maven/maven-3/3.2.5/binaries/apache-maven-3.2.5-bin.tar.gz \
@@ -33,6 +51,9 @@ RUN cd /xfl/xfl-java \
 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
+RUN cd /xfl/third_party/curve25519 \
+    && python setup.py install
+
 RUN python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip \
     && python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt --default-timeout=1000 --no-cache-dir future \
     && rm -rf ~/.cache/pip
@@ -40,6 +61,8 @@ RUN python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade 
 RUN cd /xfl \
     && python -m grpc_tools.protoc -I . --python_out=. ./xfl/data/tfreecord/tfrecords.proto \
     && python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./proto/*.proto
+
+RUN apt-get autoremove -y
 
 ENV PYTHONPATH=/xfl:$PYTHONPATH
 ENV TZ="Asia/Shanghai"

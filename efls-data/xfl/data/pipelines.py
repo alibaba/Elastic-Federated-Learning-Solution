@@ -25,6 +25,8 @@ from xfl.common.logger import log
 from xfl.data.connectors import input_sink, input_keyed_source
 from xfl.data.functions import DefaultKeySelector, ClientSortJoinFunc, ServerSortJoinFunc, ServerPsiJoinFunc, \
   ClientPsiJoinFunc, ClientBatchJoinFunc
+
+from xfl.data.ecdh_psi import ClientEcdhJoinFunc, ServerEcdhJoinFunc
 from xfl.data.store.sample_kv_store import DictSampleKvStore
 from xfl.data.store.flink_state_kv_store import FlinkStateKvStore
 from xfl.data.store.etcd_kv_store import EtcdSampleKvStore
@@ -69,6 +71,7 @@ class data_join_pipeline(object):
                rsa_pri_path: str,
                wait_s: int = 1800,
                use_psi: bool = False,
+               psi_type: str = 'rsa',
                need_sort: bool = False,
                db_root_path: str = '/tmp',
                inputfile_type: str = 'tfrecord',
@@ -88,17 +91,32 @@ class data_join_pipeline(object):
       type_info=Types.TUPLE([TYPE_BYTE_ARRAY] * 3),
       source_name=job_name + "_tf_record_source_with_key").set_parallelism(self._loaddata_parallelism)
 
+    log.info('=================Data join pipeline info================')
+    log.info('job_name: %s'%job_name)
+    log.info('is_server: %s'%is_server)
+    log.info('bucket_num: %d'%bucket_num)
+    log.info('host: %s'%host)
+    log.info('ip: %s'%ip)
+    log.info('port: %d'%port)
+    log.info('use_psi: %s'%use_psi)
+    log.info('need_sort: %s'%need_sort)
+    log.info('psi_type: %s'%psi_type)
+    log.info('sample_store_type: %s'%sample_store_type)
+    log.info('db_root_path: %s'%db_root_path)
+    log.info('client2multiserver num: %d'% client2multiserver)
+    log.info('inputfile_type: %s'% inputfile_type)
+    log.info('========================================================')
     tls_crt = b''
     if tls_crt_path is not None:
       with open(tls_crt_path, 'rb') as f:
         tls_crt = f.read()
         log.info("tls path:{} \n tls value:{}".format(tls_crt_path, tls_crt))
-    rsa_pub = b''
+    rsa_pub = None
     if rsa_pub_path is not None:
       with open(rsa_pub_path, 'rb') as f:
         rsa_pub = f.read()
         log.info("rsa_pub path:{} \n rsa_pub value:{}".format(rsa_pub_path, rsa_pub))
-    rsa_pri = b''
+    rsa_pri = None
     if rsa_pri_path is not None:
       with open(rsa_pri_path, 'rb') as f:
         rsa_pri = f.read()
@@ -109,7 +127,12 @@ class data_join_pipeline(object):
 
     if is_server:
       if use_psi:
-        server_func = ServerPsiJoinFunc
+        if psi_type == 'rsa':
+          server_func = ServerPsiJoinFunc
+        elif psi_type == 'ecdh':
+          server_func = ServerEcdhJoinFunc
+        else:
+          raise RuntimeError('Unsupported psi type %s'%psi_type)
       else:
         server_func = ServerSortJoinFunc
       ds = ds.key_by(DefaultKeySelector(bucket_num=bucket_num), key_type=Types.INT()) \
@@ -129,7 +152,12 @@ class data_join_pipeline(object):
         .name(job_name + "_merge_sort_join_server")
     else:
       if use_psi:
-        client_func = ClientPsiJoinFunc
+        if psi_type == 'rsa':
+          client_func = ClientPsiJoinFunc
+        elif psi_type == 'ecdh':
+          client_func = ClientEcdhJoinFunc
+        else:
+          raise RuntimeError('Unsupported psi_type %s'%psi_type)
       else:
         log.info("Client need sort: {}.".format(need_sort))
         if need_sort:

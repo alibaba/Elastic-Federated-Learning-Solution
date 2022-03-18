@@ -73,11 +73,11 @@ class RsaSigner(object):
 
 
 class ServerRsaSigner(RsaSigner):
-  def __init__(self, rsa_public_key_bytes: str = '', rsa_private_key_bytes: str = '', ):
+  def __init__(self, rsa_public_key_bytes: str = None, rsa_private_key_bytes: str = None, ):
     '''
       When keys are not specified, RsaSignner will generate a pair of keys everytime.
     '''
-    if rsa_public_key_bytes == b'' or rsa_private_key_bytes == b'':
+    if rsa_public_key_bytes is None or rsa_private_key_bytes is None:
       self.pub_key_bytes_, self.prv_key_bytes_ = self.generate_rsa_keys()
     else:
       self.pub_key_bytes_, self.prv_key_bytes_ = rsa_public_key_bytes, rsa_private_key_bytes
