@@ -87,6 +87,8 @@ kubectl apply -f ./deploy/quickstart/efls_ingress.yaml
 
 You can test the connectivity of grpc in the public network environment through the following commands.
 
+Note that tls.crt is required under the network folder for grpc authentication.
+
 ```bash
 python ./deploy/network/grpc_ingress_test.py -i ip -p port -n www.ailibaba.com
 ```
@@ -94,7 +96,7 @@ python ./deploy/network/grpc_ingress_test.py -i ip -p port -n www.ailibaba.com
 ### Attention
 
 It is unsafe to expose public IP in cloud environment and may be attacked by hackers.
-It is recommended to set access control for it.
+It is recommended to set access control for flink web.
 
 ### quick_start
 

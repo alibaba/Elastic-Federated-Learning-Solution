@@ -106,13 +106,16 @@ class ClientEcdhJoinFunc(ClientJoinFunc):
         #assert send_ok is True
       log.info("Step1: Sign server data ok for bucket %d! total server data item num: %d"%(cur_bucket_id, item_cnt))
     log.info("Step2: Begin to join data..")
+    self.cnt_time = 0
 
   def process_element(self, value, ctx: 'ProcessFunction.Context'):
-    s = self._state.value()
-    cur = ctx.timestamp() // 1000 * 1000
-    if s is None or cur > s:
-      self._state.update(cur)
-      ctx.timer_service().register_event_time_timer(cur + self._delay)
+    if self.cnt_time % 1000 == 0:
+      s = self._state.value()
+      cur = ctx.timestamp() // 1000 * 1000
+      if s is None or cur > s:
+        self._state.update(cur)
+        ctx.timer_service().register_event_time_timer(cur + self._delay)
+    self.cnt_time += 1
     assert(ctx.get_current_key() == self._subtask_index)
     bucket_id = get_local_bucket_id(value[0], self._client2multiserver)
     self.cnt[bucket_id] += 1
@@ -194,11 +197,12 @@ class ServerEcdhJoinFunc(ServerSortJoinFunc):
 
 
   def process_element(self, value, ctx: 'ProcessFunction.Context'):
-    s = self._state.value()
-    cur = ctx.timestamp() // 1000 * 1000
-    if s is None or cur > s:
-      self._state.update(cur)
-      ctx.timer_service().register_event_time_timer(cur + self._delay)
+    if self.cnt % 1000 == 0:
+      s = self._state.value()
+      cur = ctx.timestamp() // 1000 * 1000
+      if s is None or cur > s:
+        self._state.update(cur)
+        ctx.timer_service().register_event_time_timer(cur + self._delay)
     key = self._ecc_signer.sign_hash(get_sample_store_key(value[0], value[1]))
     self._sample_store.put(key, value[2])
     self.cnt += 1
@@ -229,7 +233,10 @@ class ServerEcdhJoinFunc(ServerSortJoinFunc):
       for l in data_join_server.get_final_result():
         for i in l:
           local_key = self._ecdh_id_map.get(i)
-          yield str(ctx.get_current_key()), self._sample_store.get(local_key)
+          if self._inputfile_type == 'tfrecord':
+            yield str(ctx.get_current_key()), self._sample_store.get(local_key)
+          else :
+            yield str(self._subtask_index), self._sample_store.get(i).decode() + '\n'
       self._sample_store.clear()
       self._ecdh_id_map.clear()
       if self._run_mode == RunMode.K8S:
