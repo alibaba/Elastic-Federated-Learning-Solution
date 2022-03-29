@@ -78,7 +78,7 @@ class LocalJoinDataset(object):
     log.info('write test local join data to path: {}, size {}'.
             format(path, len(data_list)))
     if gfile.Exists(path):
-      gfile.Remove(path)
+      gfile.DeleteRecursively(path)
     gfile.MakeDirs(path)
     cnt_file = 0
     cnt_data = 0

@@ -80,27 +80,30 @@ class TaskInterface:
                 try:
                     if data_join_scheduler.get_app_status(task_config) == \
                         data_join_scheduler.DatajoinScheduler.AppStatus.Running:
-                        job_log = data_join_scheduler.get_job_log(task_config)
-                        job_log_link = TaskInterface.get_job_loglink(job_log)
-                        message = {'job_log_link': job_log_link}
-                        call_back(message=message, error=message)
+                        if task_config.get('job_type') != 'feature-inc':
+                            job_log = data_join_scheduler.get_job_log(task_config)
+                            job_log_link = TaskInterface.get_job_loglink(job_log)
+                            message = {'job_log_link': job_log_link}
+                            call_back(message=message, error=message)
                         call_back(status=TaskInstanceStatusEnum.RUNNING.value)
                         time.sleep(20)
                     elif data_join_scheduler.get_app_status(task_config) == \
                         data_join_scheduler.DatajoinScheduler.AppStatus.Failed:
-                        job_log = data_join_scheduler.get_job_log(task_config)
-                        job_log_link = TaskInterface.get_job_loglink(job_log)
-                        message = {'job_log_link': job_log_link}
-                        call_back(message=message, error=message)
+                        if task_config.get('job_type') != 'feature-inc':
+                            job_log = data_join_scheduler.get_job_log(task_config)
+                            job_log_link = TaskInterface.get_job_loglink(job_log)
+                            message = {'job_log_link': job_log_link}
+                            call_back(message=message, error=message)
                         call_back(status=TaskInstanceStatusEnum.FAILED.value)
                         data_join_scheduler.kill_datajoin_job(task_config)
                         break
                     elif data_join_scheduler.get_app_status(task_config) == \
                         data_join_scheduler.DatajoinScheduler.AppStatus.Success:
-                        job_log = data_join_scheduler.get_job_log(task_config)
-                        job_log_link = TaskInterface.get_job_loglink(job_log)
-                        message = {'job_log_link': job_log_link}
-                        call_back(message=message, error=message)
+                        if task_config.get('job_type') != 'feature-inc':
+                            job_log = data_join_scheduler.get_job_log(task_config)
+                            job_log_link = TaskInterface.get_job_loglink(job_log)
+                            message = {'job_log_link': job_log_link}
+                            call_back(message=message, error=message)
                         call_back(status=TaskInstanceStatusEnum.TERMINATED.value)
                         data_join_scheduler.kill_datajoin_job(task_config)
                         break

@@ -12,7 +12,7 @@ ${FLINK_HOME}/bin/flink run --target kubernetes-session  -Dkubernetes.cluster-id
     --input_path=${INPUT_DIR} \
     --output_path=${OUTPUT_DIR} \
     --job_name=${JOB_NAME} \
-    --host='alifl.com' \
+	--host='www.alibaba.com' \
     --port=443 \
     --ingress_ip='192.168.0.43' \
     --bucket_num=${BUCKET_NUM} \

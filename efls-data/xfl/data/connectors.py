@@ -44,15 +44,25 @@ def tf_record_keyed_stream_format(hash_col_name: str, sort_col_name: str,
     TfRecordKeyedStreamFormat(read_buffer_size, crc_check, hash_col_name, sort_col_name)
   return StreamFormat(j_stream_format)
 
+def csv_keyed_stream_format(hash_col_name: str, sort_col_name: str, read_buffer_size: int = 4096) -> 'StreamFormat':
+  j_stream_format = get_gateway().jvm.com.alibaba.xfl.flink.connectors. \
+    CsvKeyedStreamFormat(read_buffer_size, hash_col_name, sort_col_name)
+  return StreamFormat(j_stream_format)
+
 
 def tf_record_source(input_path: str):
   return FileSource.for_record_stream_format(tf_record_stream_format(), input_path) \
     .build()
 
 
-def tf_record_keyed_source(input_path: str, hash_col_name, sort_col_name):
-  return FileSource.for_record_stream_format(tf_record_keyed_stream_format(hash_col_name, sort_col_name), input_path) \
-    .build()
+def input_keyed_source(input_path: str, hash_col_name, sort_col_name, inputfile_type):
+  if inputfile_type == 'csv':
+    return FileSource.for_record_stream_format(csv_keyed_stream_format(hash_col_name, sort_col_name), input_path) \
+      .build()
+  else :
+    return FileSource.for_record_stream_format(tf_record_keyed_stream_format(hash_col_name, sort_col_name), input_path) \
+      .build()
+
 
 
 def tf_record_bucket_assigner(bucket_col_idx: int) -> BucketAssigner:
@@ -66,6 +76,10 @@ def tf_record_sink_encoder(value_col_idx: int):
     TfRecordEncoder(value_col_idx)
   return Encoder(j_encoder)
 
+def csv_sink_encoder(value_col_idx: int):
+  j_encoder = get_gateway().jvm.com.alibaba.xfl.flink.connectors. \
+    CsvEncoder(value_col_idx)
+  return Encoder(j_encoder)
 
 def tf_record_file_sink_rolling_policy(row_number_per_file: int):
   JRowNumberRollingPolicy = get_gateway().jvm.com.alibaba.xfl.flink.connectors. \
@@ -74,8 +88,14 @@ def tf_record_file_sink_rolling_policy(row_number_per_file: int):
   return RollingPolicy(j_rolling_policy)
 
 
-def tf_record_sink(output_path: str, bucket_col_idx: int, value_col_idx: int, part_size=64):
-  return FileSink.for_row_format(output_path, tf_record_sink_encoder(value_col_idx)) \
-    .with_bucket_assigner(tf_record_bucket_assigner(bucket_col_idx)) \
-    .with_rolling_policy(tf_record_file_sink_rolling_policy(part_size)) \
-    .build()
+def input_sink(output_path: str, bucket_col_idx: int, value_col_idx: int, part_size=64, inputfile_type='tfrecord'):
+  if inputfile_type == 'tfrecord':
+    return FileSink.for_row_format(output_path, tf_record_sink_encoder(value_col_idx)) \
+      .with_bucket_assigner(tf_record_bucket_assigner(bucket_col_idx)) \
+      .with_rolling_policy(tf_record_file_sink_rolling_policy(part_size)) \
+      .build()
+  else:
+   return FileSink.for_row_format(output_path, csv_sink_encoder(value_col_idx)) \
+      .with_bucket_assigner(tf_record_bucket_assigner(bucket_col_idx)) \
+      .with_rolling_policy(tf_record_file_sink_rolling_policy(part_size)) \
+      .build()

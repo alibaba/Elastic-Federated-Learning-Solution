@@ -23,6 +23,7 @@ import unittest
 
 from data_maker import make_data
 from xfl.data.pipelines import data_join_pipeline
+from xfl.service.nginx import Nginx
 
 tf.enable_eager_execution()
 #default file path
@@ -31,6 +32,7 @@ server_result_path = "/tmp/output/TEST_DATA_JOIN_SERVER"
 client_data_path = "/tmp/input/test_data_client"
 server_data_path = "/tmp/input/test_data_server"
 np.random.seed(0)
+JOB_NAME='TEST_DATA_JOIN'
 
 class model_thread(threading.Thread):
     def __init__(self,
@@ -44,15 +46,19 @@ class model_thread(threading.Thread):
                  sample_store_type = 'memory',
                  host='localhost',
                  port=50051,
-                 ingress_ip=None,
+                 ingress_ip='127.0.0.1',
                  batch_size=2048,
                  file_part_size=1024,
                  jar='file:///xfl/lib/efls-flink-connectors-1.0-SNAPSHOT.jar',
                  run_mode='local',
                  tls_crt_path=None,
+                 rsa_pub_path=None,
+                 rsa_pri_path=None,
                  wait_s=1800,
                  use_psi=False,
-                 need_sort=True):
+                 psi_type='ecdh',
+                 need_sort=True,
+                 client2multiserver=1):
         threading.Thread.__init__(self)
         conf = {'jars': jar.split(',')}
 
@@ -72,27 +78,44 @@ class model_thread(threading.Thread):
             batch_size=batch_size,
             file_part_size=file_part_size,
             tls_crt_path=tls_crt_path,
+            rsa_pub_path=rsa_pub_path,
+            rsa_pri_path=rsa_pri_path,
             wait_s=wait_s,
             use_psi=use_psi,
+            psi_type=psi_type,
             need_sort=need_sort,
+            db_root_path='/opt',
+            client2multiserver=client2multiserver,
             conf=conf)
 
     def run(self):
         self.pipeline.run()
 
-def run_client_and_server():
+def run_client_and_server(sample_store_type, use_psi, need_sort=True, psi_type='ecdh', client2multiserver=1):
     if os.path.exists(client_result_path):
         shutil.rmtree(client_result_path)
     if os.path.exists(server_result_path):
         shutil.rmtree(server_result_path)
     print("Server startup")
-    server_thread = model_thread('TEST_DATA_JOIN_SERVER', True,
+    server_thread = model_thread(JOB_NAME, True,
                                  server_data_path, server_result_path,
-                                 'example_id', 'example_id', 8)
+                                 'example_id', 'example_id', 8,
+                                 sample_store_type=sample_store_type,
+                                 use_psi=use_psi,
+                                 psi_type=psi_type,
+                                 need_sort=need_sort,
+                                 client2multiserver=client2multiserver)
     print("Client startup")
-    client_thread = model_thread('TEST_DATA_JOIN_CLI', False,
+    client_thread = model_thread(JOB_NAME, False,
                                  client_data_path, client_result_path,
-                                 'example_id', 'example_id', 8)
+                                 'example_id', 'example_id', int(8/client2multiserver),
+                                 ingress_ip='127.0.0.1',
+                                 port=80,
+                                 sample_store_type=sample_store_type,
+                                 use_psi=use_psi,
+                                 psi_type=psi_type,
+                                 need_sort=need_sort,
+                                 client2multiserver=client2multiserver)
 
     server_thread.start()
     client_thread.start()
@@ -134,7 +157,7 @@ def result_judge(data_common):
     data_server.sort(key=get_event_time)
     data_common.sort(key=get_event_time)
 
-    print("Client result size: %d and server result size: %d" % (record_cnt_cli, record_cnt_cli))
+    print("Client result size: %d and server result size: %d" % (record_cnt_cli, record_cnt_server))
     print("Groundtrue result size: %d" % record_cnt_groundtrue)
     if record_cnt_cli != record_cnt_groundtrue:
         print("Client datajoin result size error")
@@ -168,11 +191,50 @@ def result_judge(data_common):
 
 class TestPsiDataJoin(unittest.TestCase):
     def setUp(self):
+        print("setup make data...")
         self._data_common = make_data()
+        print('prepare nginx...')
+        nginx = Nginx(JOB_NAME, 8)
+        nginx.stop()
+        nginx.dumps('/tmp/efls_nginx_test.conf')
+        nginx.start('/tmp/efls_nginx_test.conf')
 
-    def test_psi_join(self):
-        run_client_and_server()
+    def test_join(self):
+        print('test common join...')
+        run_client_and_server(sample_store_type='memory', use_psi=False)
         result_judge(self._data_common)
+
+    def test_join_with_level_db(self):
+        print('test leveldb join...')
+        run_client_and_server(sample_store_type='leveldb', use_psi=False)
+        result_judge(self._data_common)
+
+    def test_join_no_need_sort(self):
+        print('test leveldb join...')
+        run_client_and_server(sample_store_type='memory', use_psi=False, need_sort=False)
+        result_judge(self._data_common)
+
+    def test_rsa_join_with_level_db(self):
+        print('test leveldb psi join...')
+        run_client_and_server(sample_store_type='leveldb', use_psi=True, psi_type='rsa')
+        result_judge(self._data_common)
+
+    def test_ecdh_join_with_level_db(self):
+        print('test leveldb psi join...')
+        run_client_and_server(sample_store_type='leveldb', use_psi=True, psi_type='ecdh')
+        result_judge(self._data_common)
+
+    def test_c2ms_join(self):
+        print('test c2ms common join...')
+        run_client_and_server(sample_store_type='memory', use_psi=True, psi_type='ecdh', client2multiserver=2)
+        result_judge(self._data_common)
+
+    def tearDown(self):
+        print("tearDown, remove tmp data...")
+        shutil.rmtree(client_result_path)
+        shutil.rmtree(server_result_path)
+        shutil.rmtree(client_data_path)
+        shutil.rmtree(server_data_path)
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)

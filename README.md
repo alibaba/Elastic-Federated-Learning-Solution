@@ -58,5 +58,3 @@ We provide the introduction and usage of differential privacy algorithm in EFLS-
 We propose a feature fusion method based on horizontal aggregation and a feature fusion method based on hierarchical aggregation. Please refer to [documentation](./docs/efls-algo/algos.md)
 
 Users can design training algorithms according to their own needs for federated learning training.
-
-

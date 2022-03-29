@@ -73,11 +73,14 @@ class RsaSigner(object):
 
 
 class ServerRsaSigner(RsaSigner):
-  def __init__(self):
+  def __init__(self, rsa_public_key_bytes: str = None, rsa_private_key_bytes: str = None, ):
     '''
-      RsaSignner will generate a pair of keys everytime.
+      When keys are not specified, RsaSignner will generate a pair of keys everytime.
     '''
-    self.pub_key_bytes_, self.prv_key_bytes_ = self.generate_rsa_keys()
+    if rsa_public_key_bytes is None or rsa_private_key_bytes is None:
+      self.pub_key_bytes_, self.prv_key_bytes_ = self.generate_rsa_keys()
+    else:
+      self.pub_key_bytes_, self.prv_key_bytes_ = rsa_public_key_bytes, rsa_private_key_bytes
     self.rsa_public_key_ = RsaSigner.load_key(self.pub_key_bytes_, True)
     self.rsa_private_key_ = RsaSigner.load_key(self.prv_key_bytes_, False)
 
@@ -99,10 +102,10 @@ class ClientRsaSigner(RsaSigner):
   def __init__(self, rsa_public_key_bytes):
     self.rsa_public_key_ = RsaSigner.load_key(rsa_public_key_bytes, True)
 
-  def sign_func(self, ids, data_join_cli: DataJoinClient):
+  def sign_func(self, ids, data_join_cli: DataJoinClient, bucket_id):
     hashed_ids = RsaSigner.fdh_list(ids, True)
     blinded_hashed_ids, blind_numbers = self._blind_ids(hashed_ids)
-    signed_blinded_hashed_ids = data_join_cli.sign_blinded_ids_from_server(blinded_hashed_ids)
+    signed_blinded_hashed_ids = data_join_cli.sign_blinded_ids_from_server(blinded_hashed_ids, bucket_id)
     return self._deblind_signed_ids(signed_blinded_hashed_ids, blind_numbers)
 
   def _blind_ids(self, ids):

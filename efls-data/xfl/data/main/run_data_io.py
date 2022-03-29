@@ -40,6 +40,9 @@ if __name__ == "__main__":
   parser.add_argument('--sort_col_name', type=str,
                       help='name of record col which used for sorting.',
                       default='event_time')
+  parser.add_argument('--inputfile_type', type=str, default='tfrecord',
+                      choices=['tfrecord', 'csv'],
+                      help='the type of input file.')
 
   args = parser.parse_args()
   conf = {}
@@ -47,7 +50,7 @@ if __name__ == "__main__":
     conf['jars'] = args.jars.split(',')
   env = get_flink_batch_env(conf)
   ds = env.from_source(
-    source=tf_record_keyed_source(args.input_path, args.hash_col_name, args.sort_col_name),
+    source=tf_record_keyed_source(args.input_path, args.hash_col_name, args.sort_col_name, args.inputfile_type),
     watermark_strategy=WatermarkStrategy.for_monotonous_timestamps(),
     type_info=Types.TUPLE([TYPE_BYTE_ARRAY] * 3),
     source_name="oss tf record io test")

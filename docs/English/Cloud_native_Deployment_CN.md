@@ -34,7 +34,7 @@ kubectl create secret tls tls-secret --key ./deploy/quickstart/tls.key --cert ./
 
 ### 镜像构建
 
-根据需要以及k8s ECS资源设置${EFLS}/deploy/quickstart/flink_pod_template.yaml的参数
+根据需要以及k8s ECS资源设置efls_data/deploy/quickstart/flink_pod_template.yaml的参数
 
 ```bash
 sudo docker build -t efls-data:v1 -f ./Dockerfile ./
@@ -72,17 +72,17 @@ $CMD /opt/flink/examples/batch/WordCount.jar
 ```bash
 cd ${EFLS}/efls_data
 kubectl apply -f ./deploy/quickstart/grpc_server.yaml
-kubectl apply -f ./deploy/quickstart/efls_data_ingress.yaml
+kubectl apply -f ./deploy/quickstart/efls_ingress.yaml
 ```
 
-可以通过以下命令，在公网环境测试grpc的连通性
+可以通过以下命令，在公网环境测试grpc的连通性, 注意, network文件夹下需要有tls.crt文件用于grpc认证。
 
 ```bash
 python ./deploy/network/grpc_ingress_test.py -i ip -p port -n www.ailibaba.com
 ```
 
 ### 注意事项
-在云环境中暴露公网IP不安全，可能被黑客利用进行挖矿等攻击，建议对其设置访问控制。
+在云环境中暴露公网IP不安全，可能被黑客利用进行挖矿等攻击，建议对flink web设置访问控制。
 
 ### 样本求交测试
 

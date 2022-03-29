@@ -42,7 +42,7 @@ class K8sClient(object):
       kubernetes.config.load_incluster_config()
 
     self.core_api = client.CoreV1Api()
-    self.network_api = client.NetworkingV1beta1Api()
+    self.network_api = client.NetworkingV1Api()
     self.app_api = client.AppsV1Api()
 
   def close(self):

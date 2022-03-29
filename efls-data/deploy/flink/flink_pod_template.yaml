@@ -7,9 +7,9 @@ spec:
   - name: flink-main-container
     resources:
       requests:
-        ephemeral-storage: 2048Mi
+        ephemeral-storage: 8192Mi
       limits:
-        ephemeral-storage: 2048Mi
+        ephemeral-storage: 8192Mi
     volumeMounts:
       - mountPath: /opt/flink/volumes/hostpath
         name: flink-volume-hostpath
@@ -19,6 +19,8 @@ spec:
         name: flink-logs
       - mountPath: "/data"
         name: nas-pv-storage
+      - mountPath: /eflscache
+        name: efls-cache
     securityContext:
       runAsUser: 9999
   volumes:
@@ -29,6 +31,8 @@ spec:
     - name: flink-artifact
       emptyDir: { }
     - name: flink-logs
+      emptyDir: { }
+    - name: efls-cache
       emptyDir: { }
     - name: nas-pv-storage
       persistentVolumeClaim:

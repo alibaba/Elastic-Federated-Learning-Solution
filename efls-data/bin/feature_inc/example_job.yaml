@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: feature-inc-job
+spec:
+  parallelism: 3
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: nas-pv-storage
+          persistentVolumeClaim:
+            claimName: nas-pvc
+      containers:
+        - name: worker
+          image: ${your docker image}
+          command:
+            - "python"
+            - "-m"
+            - "xfl.data.main.run_wq_local_join"
+            - "--job_name=feature-inc"
+            - "--input_dir=file:///data/xfl-test/local_join_primary/"
+            - "--output_dir=file:///data/test/local_join_output/"
+            - "--split_num=5"
+            - "--left_key=key"
+            - "--right_key=aux1_key"
+            - "--aux_table=file:///data/xfl-test/local_join_aux1"
+            - "--left_key=key"
+            - "--right_key=aux2_key"
+            - "--aux_table=file:///data/xfl-test/local_join_aux2"
+          volumeMounts:
+          - mountPath: "/data"
+            name: nas-pv-storage
+      imagePullSecrets:
+        - name: ali-docker-secret

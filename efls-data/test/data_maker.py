@@ -22,6 +22,20 @@ file_cnt = 10
 # dataformat: example_id, event_time, emb
 
 
+def init():
+  global data_list, data_dict_list_x, data_dict_list_y, data_id_client \
+  ,data_id_server, data_dict_client, data_dict_server,  \
+  data_seq_client, data_seq_server
+
+  data_list = []
+  data_dict_list_x = {}
+  data_dict_list_y = {}
+  data_id_client = []
+  data_id_server = []
+  data_dict_client = {}
+  data_dict_server = {}
+  data_seq_client = []
+  data_seq_server = []
 
 def _bytes_feature(value):
     """Returns a bytes_list from a string / byte."""
@@ -94,6 +108,7 @@ def get_common_data(seq1, seq2):
     return common_data
 
 def make_data(client_size = 60000, client_path = "/tmp/input/test_data_client", server_size = 60000, server_path = "/tmp/input/test_data_server"):
+    init()
     client_data_size = client_size
     client_data_path = client_path
     server_data_size = server_size

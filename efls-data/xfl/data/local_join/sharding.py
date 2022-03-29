@@ -25,6 +25,6 @@ class FileSharding(object):
     input_files = utils.list_data_file_recursively(input_path)
     for i, f in enumerate(input_files):
       if i % worker_num == worker_idx:
-        o_file_path = f.replace(input_path, output_path, 1)
+        o_file_path = f.replace(input_path.rstrip("/"), output_path.rstrip("/"), 1)
         shards_to_process.append((f, o_file_path))
     return shards_to_process

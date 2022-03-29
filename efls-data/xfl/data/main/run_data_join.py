@@ -37,8 +37,11 @@ if __name__ == '__main__':
   parser.add_argument('--bucket_num', type=int,
                       help='bucket number for data join.')
   parser.add_argument('--sample_store_type', type=str, default='memory',
-                      choices=['memory', 'state', 'etcd'],
+                      choices=['memory', 'state', 'etcd', 'leveldb'],
                       help='the backend for sample store.')
+  parser.add_argument('--db_root_path', type=str,
+                      help='db will be created to this path while using `leveldb` as sample_store_type.',
+                      default='/tmp')
   parser.add_argument('--host', type=str, default='localhost',
                       help='server host address, `localhost` for running mode local,'
                            '`service domain` for running mode k8s`')
@@ -67,6 +70,12 @@ if __name__ == '__main__':
   parser.add_argument('--tls_path', type=str,
                       help='ca.cat file path for tls rpc connection',
                       default=None)
+  parser.add_argument('--rsa_pub_path', type=str,
+                      help='Publickey file path for rsa-psi model',
+                      default=None)
+  parser.add_argument('--rsa_pri_path', type=str,
+                      help='PrivateKey file path for rsa-psi model',
+                      default=None)
 
   parser.add_argument('--wait_s', type=int,
                       help='task waiting timeout time (second)',
@@ -76,9 +85,23 @@ if __name__ == '__main__':
                       const=True, nargs='?',
                       help="True if this job use rsa-psi method.")
 
+  parser.add_argument('--psi_type', type=str, default='rsa',
+                      choices=['rsa', 'ecdh'],
+                      help='psi join encrpytion type.')
+
   parser.add_argument('--need_sort', type=str_to_bool,
                       const=True, nargs='?',
                       help="True if you need sort samples in client. Sorting samples leeds to high cost of memory")
+
+  parser.add_argument('--inputfile_type', type=str, default='tfrecord',
+                      choices=['tfrecord', 'csv'],
+                      help='the type of input file.')
+
+  parser.add_argument('--loaddata_parallelism', type=int, default=0,
+                      help='the parallelism when loading data.')
+
+  parser.add_argument('--client2multiserver', type=int, default=1,
+                      help='the number of servers that a client correspond to.')
 
   parser.add_argument('--local_client', type=str, default='no',
                       choices=['local_no_tf', 'local', 'no'],
@@ -113,9 +136,16 @@ if __name__ == '__main__':
     batch_size=args.batch_size,
     file_part_size=args.file_part_size,
     tls_crt_path=args.tls_path,
+    rsa_pub_path=args.rsa_pub_path,
+    rsa_pri_path=args.rsa_pri_path,
     wait_s=args.wait_s,
     use_psi=args.use_psi,
+    psi_type=args.psi_type,
     need_sort=args.need_sort,
+    db_root_path=args.db_root_path,
+    inputfile_type=args.inputfile_type,
+    loaddata_parallelism=args.loaddata_parallelism,
+    client2multiserver=args.client2multiserver,
     conf=conf)
   if args.job_plan_output_path:
     with open(args.job_plan_output_path, "w") as f:
