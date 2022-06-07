@@ -24,6 +24,7 @@ import efl
 
 parser = argparse.ArgumentParser(description="fl demo arguments")
 parser.add_argument('--data_dir', type=str, required=True)
+parser.add_argument('--data_dir_local', type=str, required=True)
 parser.add_argument('--data_mode', type=str, required=True)
 parser.add_argument('--federal_role', type=str, required=True)
 _CMD_ARGS, unknown = parser.parse_known_args()
@@ -50,3 +51,15 @@ def get_data_path(mode):
   data_dir = _CMD_ARGS.data_dir.strip()
   federal_role = get_federal_role()
   return os.sep.join([data_dir, federal_role, sub_dir])
+
+def get_data_local_path(mode):
+  if mode not in (efl.MODE.TRAIN, efl.MODE.EVAL):
+    raise ValueError("Unknown mode: [{}]".format(mode))
+  if mode == efl.MODE.TRAIN:
+    sub_dir = "train"
+  else:
+    sub_dir = "test"
+  data_dir = _CMD_ARGS.data_dir_local.strip()
+  federal_role = get_federal_role()
+  return os.sep.join([data_dir, federal_role, sub_dir])
+

@@ -84,3 +84,49 @@ def iterate_train_and_eval(*args, **kwargs):
             feed_dict={model.training_flag:False})
   return _wrapper
 
+def iterate_train(*args, **kwargs):
+  def _wrapper(model):
+    task_specs = kwargs.pop("task_specs", None)
+    if not task_specs:
+      raise ValueError("must have task_specs param")
+    if not isinstance(task_specs, dict):
+      raise ValueError("task_specs must be a dict")
+    pipe_max_iter = kwargs.pop("pipe_max_iter", sys.maxsize)
+    train_stop_at_any_finish = kwargs.pop("train_stop_at_any_finish", False)
+    task_stages = OrderedDict()
+    for task, params in task_specs.items():
+      if not isinstance(params, dict):
+        raise ValueError("task_spec's params must be a dict")
+      max_iter = params.pop("max_iter", sys.maxsize)
+      train_step = params.pop("train_step", None)
+      task_stages[task] = [LoopStage(model.train_op(task), True, train_step)]
+      
+    cur_iter = 0
+    while True:
+      for task, task_stage in task_stages.items():
+        with task_scope.task_scope(mode=MODE.TRAIN, task=task):
+          if not task_stage[0].finish:
+            model.run_stage(
+              task + "_train", task_stage[0], 
+              feed_dict={model.training_flag:True})
+            if task_stage[0].finish:
+              tf_logging.info("task[{}] train finish".format(task))
+          all_finish = True
+          if train_stop_at_any_finish and task_stage[0].finish:
+            break
+          for ts in task_stages:
+            if not task_stages[ts][0].finish:
+              all_finish = False
+              break
+          if all_finish:
+            tf_logging.info("all task train finish, iterate train fn complete")
+            break
+      if all_finish:
+        break
+      cur_iter += 1
+      if cur_iter >= pipe_max_iter:
+        tf_logging.info("exceed max iter[{}], cotrain fn complete".format(pipe_max_iter))
+        break
+  return _wrapper
+
+
