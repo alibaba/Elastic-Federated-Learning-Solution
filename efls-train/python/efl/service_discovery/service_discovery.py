@@ -200,7 +200,7 @@ def generate_tf_config_and_set_env(job, task):
   task = {"type": job, "index": task_index}
   cluster = {}
   for item in cluster_def.job:
-    for k, v in item.tasks.items():
+    for k, v in sorted(item.tasks.items()):
       name = item.name
       items = v.split(":")
       if len(items) < 2:
