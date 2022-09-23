@@ -160,7 +160,7 @@ class TrainerScheduler():
             peer_appid = get_config(job_config, 'appid')
         body['spec']['template']['spec']['containers'][0]['env'].append(
             {'name': 'EFL_SSL_TARGET_NAME_OVERRIDE',
-             'value': peer_appid + '-worker-' + str(index) + '.' + get_config(job_config,
+             'value': peer_appid + '-worker-' + str(index) + '-' + get_config(job_config,
                                                                               'target_hostname')})
         return body
 
