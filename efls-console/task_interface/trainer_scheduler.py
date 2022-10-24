@@ -236,7 +236,7 @@ class TrainerScheduler():
             metadata, spec = self._generate_worker_service_config(appid, i)
             self._controller.create_service(metadata, spec, namespace=namespace)
 
-    def _generate_ingress_config(self, appid, worker_num):
+    def _generate_ingress_config(self, appid, worker_num, host_name):
         metadata = {'name': self.ingress_name(appid),
                     'annotations': {
                         'kubernetes.io/ingress.class': "nginx",
@@ -246,17 +246,17 @@ class TrainerScheduler():
                     }
         spec = {'rules': [], 'tls': [{'secretName': self._ingress_cert_name, 'hosts': []}]}
         for i in range(worker_num):
-            rule = {'host': '{}.alifl.alibaba-inc.com'.format(self.worker_name(appid, i)),
+            rule = {'host': '{}.{}'.format(self.worker_name(appid, i), host_name),
                     'http': {'paths': [{'path': '/',
                                         'pathType': 'Prefix',
                                         'backend': {'serviceName': '{}'.format(self.service_name(appid, i)),
                                                     'servicePort': 80}}]}}
             spec['rules'].append(rule)
-            spec['tls'][0]['hosts'].append('{}.alifl.alibaba-inc.com'.format(self.worker_name(appid, i)))
+            spec['tls'][0]['hosts'].append('{}.{}'.format(self.worker_name(appid, i), host_name))
         return metadata, spec
 
-    def _create_cluster_ingress(self, appid, worker_num, namespace='default'):
-        metadata, spec = self._generate_ingress_config(appid, worker_num)
+    def _create_cluster_ingress(self, appid, worker_num, namespace='default', host_name='alifl.alibaba-inc.com'):
+        metadata, spec = self._generate_ingress_config(appid, worker_num, host_name)
         self._controller.create_ingress(metadata, spec, namespace=namespace)
 
     def worker_name(self, appid, index):
@@ -308,11 +308,12 @@ class TrainerScheduler():
         appid = get_config(job_config, 'appid')
         worker_num = get_config(job_config, 'worker', 'instance_num', default=1)
         ps_num = get_config(job_config, 'ps', 'instance_num', default=1)
+        host_name = get_config(job_config, 'host_name', default='alifl.alibaba-inc.com')
         self._create_cluster_job(appid, worker_num, ps_num,
                                  job_config, command, arguments,
                                  namespace)
         self._create_cluster_service(appid, worker_num, namespace)
-        self._create_cluster_ingress(appid, worker_num, namespace)
+        self._create_cluster_ingress(appid, worker_num, namespace, host_name)
 
     def delete_train_job(self, job_config, namespace='default'):
         self._check_job_config(job_config)
@@ -354,26 +355,30 @@ def create_train_job(config,
         arguments = [arguments]
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
+    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
     _EFLS_TRAINER_SCHEDULER.create_train_job(config,
                                              command,
                                              arguments,
-                                             _EFLS_TRAIN_JOB_K8S_NAMESPACE)
+                                             k8s_namespace)
 
 
 def kill_train_job(config):
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
+    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
     _EFLS_TRAINER_SCHEDULER.delete_train_job(config,
-                                             _EFLS_TRAIN_JOB_K8S_NAMESPACE)
+                                             k8s_namespace)
 
 
 def get_job_status(job_name):
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
-    return _EFLS_TRAINER_SCHEDULER.get_job_status(job_name, _EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    return _EFLS_TRAINER_SCHEDULER.get_job_status(job_name, k8s_namespace)
 
 
 def get_app_status(config):
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
-    return _EFLS_TRAINER_SCHEDULER.get_app_status(config, _EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    return _EFLS_TRAINER_SCHEDULER.get_app_status(config, k8s_namespace)
