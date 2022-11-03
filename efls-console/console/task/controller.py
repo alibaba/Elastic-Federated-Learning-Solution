@@ -51,7 +51,7 @@ def check_task_name(task_name, user):
     return api_response(dict(name_exist=name_exist))
 
 
-@blueprint.route('/<task_intra_id>', methods=['PUT', 'GET'])
+@blueprint.route('/<task_intra_id>', methods=['PUT', 'GET', 'DELETE'])
 @verify_token()
 def update_or_get_task_intra(task_intra_id, user):
     if request.method == 'PUT':
@@ -80,6 +80,15 @@ def update_or_get_task_intra(task_intra_id, user):
 
         return api_response(task_intra.to_dict(added=dict(status=status, task_inter_id=task_inter_id,
                                                           owner_name=owner_name, project_name=project_name)))
+    if request.method == 'DELETE':
+        task_intra_service = TaskIntraService(tid=task_intra_id)
+        if not task_intra_service.task_intra:
+            raise InvalidArgument(message=f'task intra {task_intra_id} not valid')
+        if task_intra_service.task_intra.task_root:
+            raise InvalidArgument(message=f'task intra {task_intra_id} is root instance, cannot be deleted')
+        task_intra_service.delete_task()
+
+        return api_response(dict(result=True))
 
 
 @blueprint.route('/inter/<task_id>', methods=['POST', 'GET'])

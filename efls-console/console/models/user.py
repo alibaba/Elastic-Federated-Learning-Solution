@@ -20,6 +20,7 @@ class User(BaseObject, db.Model):
     token = db.Column(db.VARCHAR(256))
     token_valid = db.Column(db.BOOLEAN)
     comment = db.Column(db.VARCHAR(256))
+    info = db.Column(db.JSON)
 
     __table_args__ = (db.Index('uk_name', name, unique=True), db.Index('idx_role', role))
 

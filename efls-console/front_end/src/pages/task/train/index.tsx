@@ -1,11 +1,11 @@
 import React, { useState, useRef, useContext } from 'react';
 import { Button, message, Input, Drawer, Table, Badge, Card, Collapse } from 'antd';
 import { PlusOutlined, } from '@ant-design/icons';
-import { history, useModel } from 'umi';
+import { Access, history, useAccess, useModel, useRequest } from 'umi';
 import type { ProColumns, ActionType } from '@ant-design/pro-table';
 import ProTable from '@ant-design/pro-table';
 import { TrainTaskTableColumns, TrainVersionTableColumns, } from './utils';
-import { getTaskList, createTaskInter, instanceTaskRun } from './service';
+import { getTaskList, createTaskInter, instanceTaskRun, deleteTask } from './service';
 import DrawerResources from './components/DrawerResources';
 import styles from './styles.less';
 import ProjectContext from "@/utils/ProjectContext";
@@ -28,6 +28,7 @@ const Train: React.FC<TrainProps> = (props) => {
   const [versionInfo, setVersionInfo] = useState({});
   const [taskVisible, setTaskVisible] = useState(false);
   const { projectConfig } = useContext(ProjectContext);
+  const access = useAccess();
   const renderTaskList = async () => {
     const { data: { task_list = [] }, rsp_code } = await getTaskList({ type: 1,project_id:projectId });
     let dataSource: TrainTaskTableList | any;
@@ -52,8 +53,20 @@ const Train: React.FC<TrainProps> = (props) => {
     };
   };
 
+  const { loading, run: taskDelete } = useRequest(deleteTask, {
+    manual: true,
+    onSuccess: (data: any, params) => {
+      const { result } = data;
+      if (result) {
+        message.success('删除成功!', 1, () => refreshTable());
+      } else {
+        message.error('删除失败');
+      }
+    },
+  });
+
   const expandedRowRender = (versionData: Version[] = []) => {
-    const columns = TrainVersionTableColumns(pairTaskInter, versionStart, showDrawer,projectConfig.id);
+    const columns = TrainVersionTableColumns(pairTaskInter, versionStart, showDrawer,projectConfig.id, access, taskDelete);
     return <Table columns={columns} scroll={{ x: 1000 }} rowKey="id" dataSource={versionData} pagination={false} />;
   };
 
@@ -67,7 +80,7 @@ const Train: React.FC<TrainProps> = (props) => {
     createTaskInter(id).then((res: any) => {
       const { rsp_code } = res;
       if (rsp_code === 0) {
-        message.success('请求成功', 1, () => actionRef.current?.reload());
+        message.success('请求成功', 1, () => refreshTable());
       } else {
         message.error('请求失败')
       };
@@ -131,9 +144,11 @@ const Train: React.FC<TrainProps> = (props) => {
           };
         }}
         toolBarRender={() => [
-          <Button key="button" icon={<PlusOutlined />} onClick={() => { handleTaskVisible() }} type="primary">
-            新建
-          </Button>,
+          <Access accessible={access.canAddTask} >
+            <Button key="button" icon={<PlusOutlined />} onClick={() => { handleTaskVisible() }} type="primary">
+              新建
+            </Button>
+          </Access>,
         ]}
         scroll={{ x: '100%' }}
       />

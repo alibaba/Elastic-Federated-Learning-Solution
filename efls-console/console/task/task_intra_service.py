@@ -4,7 +4,7 @@ import json
 
 from typing import List
 
-from console.models import TaskIntra, task_intra_repo
+from console.models import TaskIntra, TaskInstance, TaskIntraRepository, TaskInstanceRepository
 from console.exceptions import NotFound, AlreadyExist
 from console.user import UserService
 from console.project import ProjectService
@@ -12,13 +12,14 @@ from console.utils import get_time_version
 
 
 class TaskIntraService:
-    task_intra_repo = task_intra_repo
+    task_intra_repo: TaskIntraRepository = TaskIntraRepository()
+    task_instance_repo: TaskInstanceRepository = TaskInstanceRepository()
 
     def __init__(self, tid: str = None, project_id: str = None, name: str = None, version: str = None):
         if tid:
-            self.task_intra = self.task_intra_repo.get(tid)
+            self.task_intra: TaskIntra = self.task_intra_repo.get(tid)
         elif project_id and name and version:
-            self.task_intra = self.task_intra_repo.filter(project_id=project_id, name=name, version=version)
+            self.task_intra: TaskIntra = self.task_intra_repo.filter(project_id=project_id, name=name, version=version)
 
     def create_task(self, project_id: str, name: str, owner_id: str, type: int, task_root: bool, token: str = None,
                     comment: str = None, config: str = None, meta: str = None):
@@ -79,3 +80,11 @@ class TaskIntraService:
 
     def get_task_list(self, request_data: dict) -> List[TaskIntra]:
         return self.task_intra_repo.get_all(**request_data)
+
+    def delete_task(self):
+        from console.task_instance import TaskInstanceService
+        task_instance_list = self.task_instance_repo.query(filter=[TaskInstance.task_intra_id == self.task_intra.id])
+        for task_instance in task_instance_list:
+            task_instance_service = TaskInstanceService(task_instance_id=task_instance.id)
+            task_instance_service.delete_task_instance()
+        self.task_intra_repo.delete_autocommit(self.task_intra)

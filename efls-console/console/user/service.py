@@ -36,7 +36,14 @@ def verify_token(role: UserRoleEnum = UserRoleEnum.DEFAULT):
                 if 'user_id' not in data:
                     return api_response(data=dict(), message='invalid token format',
                                         rsp_code=ResponseCodeEnum.PERMISSION_DENIED.value)
-                user = UserService(uid=data.get(TOKEN_USER_ID)).user
+                try:
+                    user = UserService(uid=data.get(TOKEN_USER_ID)).user
+                except NotFound:
+                    return api_response(data=dict(), message='user not found',
+                                        rsp_code=ResponseCodeEnum.PERMISSION_DENIED.value)
+                except:
+                    return api_response(data=dict(), message='db connection failed',
+                                        rsp_code=ResponseCodeEnum.PERMISSION_DENIED.value)
                 # sign out check
                 if not user.token_valid:
                     return api_response(data=dict(), message='token expired',
@@ -106,3 +113,30 @@ class UserService:
         self.user.token = None
         self.user.token_valid = False
         self.user_repo.insert_or_update(self.user)
+
+    def update(self, request_data: dict):
+        update_attr = {}
+        user_id = self.user.id
+        if request_data.get('password'):
+            origin_password = request_data.get('origin_password')
+            if not origin_password:
+                raise InvalidArgument(message='origin password missing')
+            check_pw = self.user.validate_password(origin_password)
+            if not check_pw:
+                raise InvalidArgument(message='incorrect password')
+            self.user.password = User.set_password(request_data.get('password'))
+            update_attr['password'] = self.user.password
+        if request_data.get('info'):
+            update_attr['info'] = request_data.get('info')
+        if request_data.get('role'):
+            update_attr['role'] = request_data.get('role')
+
+        if update_attr:
+            self.user_repo.update_autocommit(
+                query_attr=dict(id=user_id),
+                update_attr=update_attr,
+                error_msg='fail to update user'
+            )
+        user = self.user_repo.query(filter=[User.id == user_id], query_first=True)
+
+        return user.to_dict(excluded=['password', 'token', 'token_valid'])

@@ -64,12 +64,18 @@ class TaskInstanceService:
         need_update = False
         if message is not None:
             origin_message = json.loads(self.task_instance.message) if self.task_instance.message else {}
-            origin_message.update(message)
+            if message:
+                origin_message.update(message)
+            else:
+                origin_message = {}
             self.task_instance.message = json.dumps(origin_message)
             need_update = True
         if error is not None:
             origin_error = json.loads(self.task_instance.error) if self.task_instance.error else {}
-            origin_error.update(error)
+            if error:
+                origin_error.update(error)
+            else:
+                origin_error = {}
             self.task_instance.error = json.dumps(origin_error)
             need_update = True
         if gmt_start is not None:
@@ -142,6 +148,11 @@ class TaskInstanceService:
         return self.sync_peer_service.get_task_peer_instance()
 
     def get_task_instance_list(self, task_inter_id: str, page_num: int, page_size: int) \
-            -> Tuple[List[TaskInstance], int]:
-        return self.task_instance_repo.get_all_with_pagination(task_inter_id=task_inter_id, page_num=page_num,
+            -> Tuple[List, int]:
+        return self.task_instance_repo.get_all_with_pagination(params=[TaskInstance.id, TaskInstance.status],
+                                                               task_inter_id=task_inter_id, page_num=page_num,
                                                                page_size=page_size)
+
+    def delete_task_instance(self):
+        if self.task_instance:
+            self.task_instance_repo.delete_autocommit(self.task_instance)
