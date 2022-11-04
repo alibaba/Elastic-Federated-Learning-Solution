@@ -1,3 +1,6 @@
 [submodule "efls-train/third_party/grpc"]
 	path = efls-train/third_party/grpc
 	url = https://github.com/grpc/grpc.git
+[submodule "efls-data/third_party/curve25519"]
+	path = efls-data/third_party/curve25519
+	url = https://github.com/floodyberry/curve25519-donna.git

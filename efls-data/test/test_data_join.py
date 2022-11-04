@@ -214,11 +214,6 @@ class TestPsiDataJoin(unittest.TestCase):
         run_client_and_server(sample_store_type='memory', use_psi=False, need_sort=False)
         result_judge(self._data_common)
 
-    def test_rsa_join_with_level_db(self):
-        print('test leveldb psi join...')
-        run_client_and_server(sample_store_type='leveldb', use_psi=True, psi_type='rsa')
-        result_judge(self._data_common)
-
     def test_ecdh_join_with_level_db(self):
         print('test leveldb psi join...')
         run_client_and_server(sample_store_type='leveldb', use_psi=True, psi_type='ecdh')
