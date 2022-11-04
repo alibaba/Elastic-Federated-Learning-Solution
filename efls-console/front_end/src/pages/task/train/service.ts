@@ -16,6 +16,11 @@ export async function createTask(params:any, options?: { [key: string]: any }) {
   return post('/task',params);
 };
 
+//删除任务
+export async function deleteTask(id: string) {
+  return del(`/task/${id}`,null);
+};
+
 //更新我方配置
 export async function updateTask(params:any,options?: any) {
   const id = params.id;
@@ -65,6 +70,11 @@ export async function instanceTaskUpdate(params:any,options?: any) {
   return put(`/task_instance/${id}`,params);
 };
 
+//task_instance 删除
+export async function instanceTaskDelete(id: string) {
+  return del(`/task_instance/${id}`,null);
+};
+
 //上传资源
 export async function uploadResources(params:any,options?: any) {
   return post('/resource',params);
@@ -89,3 +99,4 @@ export async function downloadResources(name:any,options?: any) {
 export async function queryResourcesList(id:any,options?: any) {
   return get(`/resource/list/${id}`,null);
 };
+

@@ -2,6 +2,7 @@
 
 import time
 import threading
+import json
 
 from flask import Blueprint, request
 
@@ -51,12 +52,25 @@ def update_instance(task_instance_id, user):
     request_data = api_request()
     comment = None
     need_sync = None
+    message = None
+    error = None
     if request_data.get('comment') is not None:
         comment = request_data['comment']
     if request_data.get('need_sync') is not None:
         need_sync = bool(request_data['need_sync'])
+    if request_data.get('message') is not None:
+        try:
+            message = json.loads(request_data['message']) if request_data['message'] else {}
+        except:
+            logger.error(msg=f'invalid format in message')
+    if request_data.get('error') is not None:
+        try:
+            error = json.loads(request_data['error']) if request_data['error'] else {}
+        except:
+            logger.error(msg=f'invalid format in error')
     task_instance_service = TaskInstanceService(task_instance_id=task_instance_id)
-    task_instance = task_instance_service.update_task_instance(comment=comment, need_sync=need_sync)
+    task_instance = task_instance_service.update_task_instance(comment=comment, need_sync=need_sync, message=message,
+                                                               error=error)
     task_instance_peer = task_instance_service.get_task_peer_instance()
 
     return api_response(dict(task_instance.to_dict(added=dict(task_instance_peer=task_instance_peer))))
@@ -72,6 +86,15 @@ def get_instance(task_instance_id, user):
 
     return api_response(dict(task_instance.to_dict(added=dict(task_instance_peer=task_instance_peer,
                                                               task_intra_name=task_intra_name))))
+
+
+@blueprint.route('/<task_instance_id>', methods=['DELETE'])
+@verify_token()
+def delete_instance(task_instance_id, user):
+    task_instance_service = TaskInstanceService(task_instance_id=task_instance_id)
+    task_instance_service.delete_task_instance()
+
+    return api_response(dict(result=True))
 
 
 @blueprint.route('/peer/<task_instance_peer_id>', methods=['POST', 'GET', 'PUT'])
@@ -158,11 +181,11 @@ def get_instance_list(user):
     api_params_check(request_data, required)
     page_num = request_data.get(DB_PAGE_NUM, DB_PAGE_NUM_DEFAULT)
     page_size = request_data.get(DB_PAGE_SIZE, DB_PAGE_SIZE_DEFAULT)
-    task_instance_object_list, total = TaskInstanceService() \
+    task_id_status_list, total = TaskInstanceService() \
         .get_task_instance_list(request_data['task_inter_id'], page_num=int(page_num), page_size=int(page_size))
     task_instance_dict_list = []
-    for task_instance_object in task_instance_object_list:
-        task_instance_dict_list.append(task_instance_object.to_dict())
+    for task_id_status in task_id_status_list:
+        task_instance_dict_list.append(dict(id=task_id_status[0], status=task_id_status[1]))
 
     return api_response(dict(task_instance_list=task_instance_dict_list, total=total))
 

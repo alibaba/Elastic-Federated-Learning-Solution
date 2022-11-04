@@ -1,5 +1,6 @@
 import { Badge, Button, Divider, Popconfirm, Tooltip } from 'antd';
 import { history } from 'umi';
+import MyCollection from '@/utils/MyCollection.tsx';
 
 const renderInformationStatus = (status: number) => {
   switch (status) {
@@ -83,7 +84,10 @@ export const InformationTaskTableColumns = [
     dataIndex: 'name',
     render: (dom, entity) => {
       return (
-        <a onClick={() => { }}>{dom}</a>
+        <>
+          <a onClick={() => { }}>{dom}</a>
+          <MyCollection record={entity} namespace="sample" />
+        </>
       );
     },
   },

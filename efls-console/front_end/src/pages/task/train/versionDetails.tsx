@@ -5,11 +5,11 @@ import { SlidersOutlined, EyeOutlined, EyeInvisibleOutlined, ReloadOutlined, Pla
 import ProDescriptions from '@ant-design/pro-descriptions';
 import type { ProColumns, ActionType } from '@ant-design/pro-table';
 import ProTable from '@ant-design/pro-table';
-import { history } from 'umi';
+import { Access, history, useAccess } from 'umi';
 import { useRequest } from 'ahooks';
 import ProjectContext from "@/utils/ProjectContext";
 import styles from './styles.less';
-import { getTaskIntraInfo, getTaskInterInfo, getTaskInstanceList, taskInstanceStatus, instanceTaskRun, instanceTaskUpdate } from './service';
+import { getTaskIntraInfo, getTaskInterInfo, getTaskInstanceList, taskInstanceStatus, instanceTaskRun, instanceTaskUpdate, instanceTaskDelete } from './service';
 import { TrainInstanceTableColumns } from './utils';
 
 
@@ -30,6 +30,7 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
   const [versionInfo, setVersionInfo] = useState<any>({});
   const [versionInterInfo, setVersionInterInfo] = useState<any>();
   const btn = !configVisible ? <><EyeOutlined /> 查看对方配置</> : <><EyeInvisibleOutlined /> 隐藏对方配置</>;
+  const access = useAccess();
 
   const { loading, run: get_task_intra_info } = useRequest(getTaskIntraInfo, {
     manual: true,
@@ -51,6 +52,18 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
     }
   });
 
+  const { loading: deleteLoading, run: instanceDelete } = useRequest(instanceTaskDelete, {
+    manual: true,
+    onSuccess: (result: any, params) => {
+      const { rsp_code } = result;
+      if (rsp_code == 0 ) {
+        message.success('删除成功!', 1, () => refreshTable());
+      } else {
+        message.error('删除失败');
+      }
+    }
+  });
+
   useEffect(() => {
     if (configVisible) {
       if (!versionInterInfo) {
@@ -67,9 +80,13 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
 
   useEffect(() => {
     if (versionInfo.task_inter_id) {
-      actionRef.current?.reload();
+      refreshTable();
     };
   }, [versionInfo.task_inter_id]);
+
+  const refreshTable = () => {
+    actionRef.current?.reload();
+  }
 
   const renderTaskInstanceList = async (params: any) => {
     const task_inter_id = versionInfo.task_inter_id;
@@ -87,7 +104,7 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
     taskInstanceStatus(params).then((res: any) => {
       const { rsp_code, message: info } = res;
       if (rsp_code === 0) {
-        message.success('操作成功', 1, () => actionRef.current?.reload());
+        message.success('操作成功', 1, () => refreshTable());
       } else {
         message.error(`操作失败${info ?? ''} `);
       };
@@ -100,7 +117,7 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
     instanceTaskUpdate({ id, "need_sync": true }).then((res: any) => {
       const { rsp_code, message: info } = res;
       if (rsp_code === 0) {
-        message.success('更新成功', 1, () => actionRef.current?.reload());
+        message.success('更新成功', 1, () => refreshTable());
       } else {
         message.error(`更新失败${info ?? ''} `);
       };
@@ -113,11 +130,11 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
     instanceTaskRun(versionInfo.task_inter_id).then((res: any) => {
       const { rsp_code, message: info } = res;
       if (rsp_code === 0) {
-        message.success('运行成功', 1, () => actionRef.current?.reload());
+        message.success('运行成功', 1, () => refreshTable());
       } else {
-        message.error('运行失败', 1, () => actionRef.current?.reload());
+        message.error('运行失败', 1, () => refreshTable());
       }
-    }).catch(err => message.error('运行失败', 1, () => actionRef.current?.reload()));
+    }).catch(err => message.error('运行失败', 1, () => refreshTable()));
   };
 
   const checkJson = (config: any) => {
@@ -135,7 +152,7 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
     return tmpConfig;
   };
 
-  const columns = TrainInstanceTableColumns(handleInstanceRun, handleInstanceUpdate, projectConfig?.id);
+  const columns = TrainInstanceTableColumns(handleInstanceRun, handleInstanceUpdate, projectConfig?.id, instanceDelete);
   const runBtn = versionInfo.status === 1 || versionInfo.status === 2;
 
   return (
@@ -169,9 +186,11 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
           </ProDescriptions.Item>
           <ProDescriptions.Item label="文本" valueType="option">
             {runBtn &&
-              <Popconfirm title="确认运行?" onConfirm={versionStart} okText="确认" cancelText="取消">
-                <Button style={{ margin: 0, padding: "0px 6px", height: "28px" }}><PlaySquareOutlined />运行实例</Button>
-              </Popconfirm>
+              <Access accessible={access.canRun} >
+                <Popconfirm title="确认运行?" onConfirm={versionStart} okText="确认" cancelText="取消">
+                  <Button style={{ margin: 0, padding: "0px 6px", height: "28px" }}><PlaySquareOutlined />运行实例</Button>
+                </Popconfirm>
+              </Access>
             }
             <Button style={{ margin: 0, padding: "0px 6px", height: "28px" }} onClick={() => setConfigVisible(!configVisible)}>{btn}</Button>
           </ProDescriptions.Item>

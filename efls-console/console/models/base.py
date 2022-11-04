@@ -3,7 +3,7 @@
 import time
 import uuid
 
-from typing import Optional, List, Any, Tuple
+from typing import Optional, List, Any, Tuple, Iterable
 from enum import Enum
 from datetime import datetime
 
@@ -13,6 +13,7 @@ from sqlalchemy.orm import defer
 from console.constant import DATA_CREATE, DATA_TIME_KEYS, DB_MAX_TRY, DATA_MODIFIED, DB_PAGE_NUM, DB_PAGE_SIZE
 from console.factory import logger
 from console.exceptions import Internal
+from console.utils import repo_auto_session
 
 
 class BaseObject:
@@ -93,6 +94,107 @@ class BaseRepository:
         """
         self.db.session.commit()
 
+    @repo_auto_session(auto_commit=True)
+    def add_autocommit(self, element, error_msg: str = 'db fail to add', auto_time=True):
+        if auto_time and hasattr(element, DATA_MODIFIED):
+            element.gmt_modified = time.time()
+        return self.db.session.add(element)
+
+    def add(self, element, error_msg: str = 'db fail to add', auto_time=True):
+        if auto_time and hasattr(element, DATA_MODIFIED):
+            element.gmt_modified = time.time()
+        return self.db.session.add(element)
+
+    @repo_auto_session(auto_commit=True)
+    def delete_autocommit(self, element: object, error_msg: str = 'db fail to delete'):
+        return self.db.session.delete(element)
+
+    def delete(self, element: object, error_msg: str = 'db fail to delete'):
+        return self.db.session.delete(element)
+
+    @repo_auto_session(auto_commit=True)
+    def update_autocommit(self, query_attr, update_attr, error_msg: str = 'db fail to update', auto_time=True):
+        if auto_time:
+            update_attr.update(gmt_modified=datetime.now())
+
+        return self.db.session.query(self.model).filter_by(**query_attr).update(update_attr)
+
+    def update(self, query_attr, update_attr, error_msg: str = 'db fail to update', auto_time=True):
+        if auto_time:
+            update_attr.update(gmt_modified=datetime.now())
+
+        return self.db.session.query(self.model).filter_by(**query_attr).update(update_attr)
+
+    def execute(self, sql_str: str, error_msg: str = 'db fail to exec'):
+        return self.db.session.execute(sql_str)
+
+    @repo_auto_session(auto_commit=False)
+    def query(self, params=None, error_msg: str = 'db fail to query', **where_conds):
+        if (not where_conds or not set(where_conds.keys()).
+                issubset({'filter', 'group_by', 'order_by', 'limit', 'offset', 'query_first'})):
+            raise Internal(message='query where conditions error')
+        if params is None:
+            # 查询 model 全量字段
+            session_query = self.db.session.query(self.model)
+        else:
+            if not isinstance(params, Iterable):
+                params = [params]
+            session_query = self.db.session.query(*params)
+        filter_conds = where_conds.pop('filter', None)
+        group_conds = where_conds.pop('group_by', None)
+        order_conds = where_conds.pop('order_by', None)
+        limit = where_conds.pop('limit', None)
+        offset = where_conds.pop('offset', None)
+        query_first = where_conds.pop('query_first', False)
+
+        if filter_conds is not None:
+            session_query = session_query.filter(*filter_conds)
+        if group_conds is not None:
+            session_query = session_query.group_by(*group_conds)
+        if order_conds is not None:
+            session_query = session_query.order_by(*order_conds)
+        if limit is not None:
+            session_query = session_query.limit(limit)
+        if offset is not None:
+            session_query = session_query.offset(offset)
+        if query_first:
+            return session_query.first()
+
+        return session_query.all()
+
+    def query_without_auto_session(self, params=None, error_msg: str = 'db fail to query', **where_conds):
+        if (not where_conds or not set(where_conds.keys()).
+                issubset({'filter', 'group_by', 'order_by', 'limit', 'offset', 'query_first'})):
+            raise Internal(message='query where conditions error')
+        if params is None:
+            # 查询 model 全量字段
+            session_query = self.db.session.query(self.model)
+        else:
+            if not isinstance(params, Iterable):
+                params = [params]
+            session_query = self.db.session.query(*params)
+        filter_conds = where_conds.pop('filter', None)
+        group_conds = where_conds.pop('group_by', None)
+        order_conds = where_conds.pop('order_by', None)
+        limit = where_conds.pop('limit', None)
+        offset = where_conds.pop('offset', None)
+        query_first = where_conds.pop('query_first', False)
+
+        if filter_conds is not None:
+            session_query = session_query.filter(*filter_conds)
+        if group_conds is not None:
+            session_query = session_query.group_by(*group_conds)
+        if order_conds is not None:
+            session_query = session_query.order_by(*order_conds)
+        if limit is not None:
+            session_query = session_query.limit(limit)
+        if offset is not None:
+            session_query = session_query.offset(offset)
+        if query_first:
+            return session_query.first()
+
+        return session_query.all()
+
     def get(self, _id):
         """
         get element by id
@@ -123,9 +225,10 @@ class BaseRepository:
         return self.db.session.query(self.model).options(*[defer(item) for item in defer_attr]).filter_by(**attr) \
             .order_by(getattr(self.model, order)).all()
 
-    def get_all_with_pagination(self, order: Optional[str] = None, **attr) -> Tuple[List[Any], int]:
+    def get_all_with_pagination(self, params=None, order: Optional[str] = None, **attr) -> Tuple[List[Any], int]:
         """
         get all elements with pagination
+        :param params:
         :param order:
         :param attr:
         :return:
@@ -133,7 +236,13 @@ class BaseRepository:
         order = order or DATA_CREATE
         page_num = attr.pop(DB_PAGE_NUM)
         page_size = attr.pop(DB_PAGE_SIZE)
-        pagination = self.db.session.query(self.model).filter_by(**attr).order_by(getattr(self.model, order)) \
+        if params is None:
+            session_query = self.db.session.query(self.model)
+        else:
+            if not isinstance(params, Iterable):
+                params = [params]
+            session_query = self.db.session.query(*params)
+        pagination = session_query.filter_by(**attr).order_by(getattr(self.model, order)) \
             .paginate(page_num, page_size, False)
 
         return pagination.items, pagination.total
