@@ -5,7 +5,7 @@ from flask import Blueprint
 from console.utils import api_request, api_response, api_params_check
 from console.factory import logger
 from console.user.service import UserService, verify_token
-from console.user.user_enum import UserRoleEnum
+from console.user.user_enum import UserRoleEnum, UserPermissionEnum
 from console.constant import TOKEN
 
 blueprint = Blueprint('user', __name__)
@@ -31,7 +31,12 @@ def get_user(user):
 
 @blueprint.route('/<_id>', methods=['PUT'])
 def update_user(_id):
-    pass
+    request_data = api_request()
+
+    user_service = UserService(uid=_id)
+    user_dict = user_service.update(request_data)
+
+    return api_response(user_dict)
 
 
 @blueprint.route('/<_id>', methods=['DELETE'])
@@ -64,3 +69,10 @@ def sign_off(user):
     response.delete_cookie(TOKEN)
 
     return response
+
+
+@blueprint.route('/permission', methods=['GET'])
+def get_permission():
+    permission_list = [permission.value for permission in UserPermissionEnum]
+
+    return api_response(dict(permission_list=permission_list))

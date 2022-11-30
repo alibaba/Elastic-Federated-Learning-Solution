@@ -5,7 +5,7 @@ import { useRequest } from 'ahooks';
 import ProDescriptions from '@ant-design/pro-descriptions';
 import type { ProDescriptionsActionType } from '@ant-design/pro-descriptions';
 import styles from '../styles.less';
-import { getTaskInstanceDetails } from '../service';
+import { getTaskInstanceDetails,instanceTaskUpdate } from '../service';
 import LogViewBtn from './LogViewBtn';
 interface versionDetailsProps {
   location: {
@@ -51,6 +51,23 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
     };
   }
 
+  const clearMessage = async (type: "message" | "error") => {
+    const { location: { query: { id } } } = props;
+    const param = { id: id }
+    if (type === "message") {
+      param['message'] = {};
+    }
+    if (type === 'error') {
+      param['error'] = {};
+    }
+    const { rsp_code } = await instanceTaskUpdate(param);
+    if (rsp_code === 0) {
+      message.info('清空日志成功');
+      await getTaskInstanceInfo();
+
+    }
+  }
+
   return (
     <>
       <ProDescriptions
@@ -74,9 +91,11 @@ const versionDetails: React.FC<versionDetailsProps> = (props) => {
         <ProDescriptions.Item dataIndex="gmt_start" label="启动时间" valueType="dateTime" span={2} />
         <ProDescriptions.Item label="message" span={4}>
           <LogViewBtn log={instanceInfo?.message} />
+          {instanceInfo?.message && <Button type='primary' onClick={() => {clearMessage('message')}}>清空</Button> }
         </ProDescriptions.Item>
         <ProDescriptions.Item label="error" span={4} >
           <LogViewBtn log={instanceInfo?.error} />
+          {instanceInfo?.error && <Button type='primary' onClick={() => {clearMessage('error')}}>清空</Button> }
         </ProDescriptions.Item>
         <ProDescriptions.Item span={4}>
           <Divider orientation="right" plain><h3>instance对方信息</h3></Divider>

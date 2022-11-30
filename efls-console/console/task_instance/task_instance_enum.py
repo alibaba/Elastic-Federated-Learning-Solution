@@ -10,6 +10,7 @@ class TaskInstanceStatusEnum(Enum):
     RUNNING = 3
     FAILED = 4
     TERMINATED = 5
+    SUCCESS = 6
 
 
 class TaskInstanceOperationEnum(Enum):

@@ -1,12 +1,13 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Menu, Spin } from 'antd';
+import { Avatar, Menu, Spin, Drawer } from 'antd';
 import { history, useModel } from 'umi';
 import { stringify } from 'querystring';
 import HeaderDropdown from '../HeaderDropdown';
 import styles from './index.less';
 import { outLogin } from '@/services/console/api';
 import type { MenuInfo } from 'rc-menu/lib/interface';
+import SettingsDrawer from './SettingsDrawer';
 
 export type GlobalHeaderRightProps = {
   menu?: boolean;
@@ -32,6 +33,7 @@ const loginOut = async () => {
 
 const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
   const { initialState, setInitialState } = useModel('@@initialState');
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const onMenuClick = useCallback(
     (event: MenuInfo) => {
@@ -41,6 +43,7 @@ const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
         loginOut();
         return;
       }
+      if(key == 'owner') return;
       history.push(`/account/${key}`);
     },
     [setInitialState],
@@ -76,13 +79,20 @@ const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
           个人中心
         </Menu.Item>
       )}
-      {menu && (
+      {/* {menu && (
         <Menu.Item key="settings">
           <SettingOutlined />
           个人设置
         </Menu.Item>
-      )}
-      {menu && <Menu.Divider />}
+      )} */}
+      {/* {menu && <Menu.Divider />} */}
+
+
+      <Menu.Item key="owner" onClick={({domEvent}) => { domEvent.stopPropagation(); setSettingsVisible(true) }}>
+          <SettingOutlined />
+          个人设置
+      </Menu.Item>
+      <Menu.Divider />
 
       <Menu.Item key="logout">
         <LogoutOutlined />
@@ -91,12 +101,15 @@ const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
     </Menu>
   );
   return (
-    <HeaderDropdown overlay={menuHeaderDropdown}>
-      <span className={`${styles.action} ${styles.account}`}>
-        <Avatar size="small" className={styles.avatar} src={currentUser.avatar} alt="avatar" />
-        <span className={`${styles.name} anticon`}>{currentUser.name}</span>
-      </span>
-    </HeaderDropdown>
+    <>
+      <HeaderDropdown overlay={menuHeaderDropdown}>
+        <span className={`${styles.action} ${styles.account}`}>
+          <Avatar size="small" className={styles.avatar} src={currentUser.avatar} alt="avatar" />
+          <span className={`${styles.name} anticon`}>{currentUser.name}</span>
+        </span>
+      </HeaderDropdown>
+      <SettingsDrawer settingsVisible={settingsVisible} closeSettings={() => setSettingsVisible(false)} />
+    </>
   );
 };
 
