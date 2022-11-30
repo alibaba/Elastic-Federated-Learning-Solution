@@ -160,8 +160,8 @@ class TrainerScheduler():
             peer_appid = get_config(job_config, 'appid')
         body['spec']['template']['spec']['containers'][0]['env'].append(
             {'name': 'EFL_SSL_TARGET_NAME_OVERRIDE',
-             'value': peer_appid + '-worker-' + str(index) + '-' + get_config(job_config,
-                                                                              'target_hostname')})
+             'value': peer_appid + '-worker-' + str(index) + get_config(job_config,
+                                                                        'target_hostname')})
         return body
 
     def _generate_ps_job_config(self, appid, index, job_config,
@@ -246,16 +246,16 @@ class TrainerScheduler():
                     }
         spec = {'rules': [], 'tls': [{'secretName': self._ingress_cert_name, 'hosts': []}]}
         for i in range(worker_num):
-            rule = {'host': '{}.{}'.format(self.worker_name(appid, i), host_name),
+            rule = {'host': '{}{}'.format(self.worker_name(appid, i), host_name),
                     'http': {'paths': [{'path': '/',
                                         'pathType': 'Prefix',
                                         'backend': {'serviceName': '{}'.format(self.service_name(appid, i)),
                                                     'servicePort': 80}}]}}
             spec['rules'].append(rule)
-            spec['tls'][0]['hosts'].append('{}.{}'.format(self.worker_name(appid, i), host_name))
+            spec['tls'][0]['hosts'].append('{}{}'.format(self.worker_name(appid, i), host_name))
         return metadata, spec
 
-    def _create_cluster_ingress(self, appid, worker_num, namespace='default', host_name='alifl.alibaba-inc.com'):
+    def _create_cluster_ingress(self, appid, worker_num, namespace='default', host_name='.alifl.alibaba-inc.com'):
         metadata, spec = self._generate_ingress_config(appid, worker_num, host_name)
         self._controller.create_ingress(metadata, spec, namespace=namespace)
 
@@ -308,7 +308,7 @@ class TrainerScheduler():
         appid = get_config(job_config, 'appid')
         worker_num = get_config(job_config, 'worker', 'instance_num', default=1)
         ps_num = get_config(job_config, 'ps', 'instance_num', default=1)
-        host_name = get_config(job_config, 'host_name', default='alifl.alibaba-inc.com')
+        host_name = get_config(job_config, 'host_name', default='.alifl.alibaba-inc.com')
         self._create_cluster_job(appid, worker_num, ps_num,
                                  job_config, command, arguments,
                                  namespace)
