@@ -355,7 +355,7 @@ def create_train_job(config,
         arguments = [arguments]
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
-    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    k8s_namespace = get_config(config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
     _EFLS_TRAINER_SCHEDULER.create_train_job(config,
                                              command,
                                              arguments,
@@ -365,7 +365,7 @@ def create_train_job(config,
 def kill_train_job(config):
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
-    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    k8s_namespace = get_config(config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
     _EFLS_TRAINER_SCHEDULER.delete_train_job(config,
                                              k8s_namespace)
 
@@ -373,12 +373,12 @@ def kill_train_job(config):
 def get_job_status(job_name):
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
-    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
-    return _EFLS_TRAINER_SCHEDULER.get_job_status(job_name, k8s_namespace)
+    #k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    return _EFLS_TRAINER_SCHEDULER.get_job_status(job_name, _EFLS_TRAIN_JOB_K8S_NAMESPACE)
 
 
 def get_app_status(config):
     if _EFLS_TRAINER_SCHEDULER is None:
         raise ValueError('Trainer scheduler has not been initialized, call init_trainer_scheduler first.')
-    k8s_namespace = get_config(job_config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
+    k8s_namespace = get_config(config, 'k8s_namespace', default=_EFLS_TRAIN_JOB_K8S_NAMESPACE)
     return _EFLS_TRAINER_SCHEDULER.get_app_status(config, k8s_namespace)
