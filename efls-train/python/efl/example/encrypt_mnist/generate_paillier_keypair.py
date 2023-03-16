@@ -13,16 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+import os
+import efl
 
-import enum
+efl.privacy.generate_paillier_key("public_key.json", "private_key.json")
 
-MODE = enum.Enum('MODE', ('TRAIN', 'EVAL'))
-
-STAGE_WAIT_RATIO = 'stage_wait_ratio'
-STAGE_TIMEOUT = 'stage_timeout'
-DEFAULT_STAGE_TIMEOUT = 600000 #millisecond
-STAGE_CHECK_INTERVAL = 10000 #millisecond
-COMPILE_ARGS = 'compile_args'

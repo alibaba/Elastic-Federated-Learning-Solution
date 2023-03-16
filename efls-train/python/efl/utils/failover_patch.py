@@ -91,17 +91,14 @@ def _restore_checkpoint_hook(self,
     # Waits up until max_wait_secs for checkpoint to become available.
     wait_time = 0
     ckpt = checkpoint_management.get_checkpoint_state(checkpoint_dir)
-    find_ckpt_success = False
     while not ckpt or not ckpt.model_checkpoint_path:
       if wait_for_checkpoint and wait_time < max_wait_secs:
         logging.info("Waiting for checkpoint to be available.")
         time.sleep(self._recovery_wait_secs)
         wait_time += self._recovery_wait_secs
         ckpt = checkpoint_management.get_checkpoint_state(checkpoint_dir)
-        find_ckpt_success = True
       else:
         find_ckpt_success = False
-        break
     if communicator is None:
       if not find_ckpt_success:
         return  sess, False

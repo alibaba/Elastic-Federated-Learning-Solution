@@ -23,10 +23,11 @@ from pyflink.datastream.execution_mode import RuntimeExecutionMode
 from xfl.common.common import RunMode
 from xfl.common.logger import log
 from xfl.data.connectors import input_sink, input_keyed_source
-from xfl.data.functions import DefaultKeySelector, ClientSortJoinFunc, ServerSortJoinFunc, ServerPsiJoinFunc, \
+from xfl.data.functions import DefaultKeySelector, ClientSortJoinFunc, ServerSortJoinFunc,\
   ClientPsiJoinFunc, ClientBatchJoinFunc
 
 from xfl.data.ecdh_psi import ClientEcdhJoinFunc, ServerEcdhJoinFunc
+from xfl.data.rsa_psi import ClientRsaJoinFunc, ServerRsaJoinFunc
 from xfl.data.store.sample_kv_store import DictSampleKvStore
 from xfl.data.store.flink_state_kv_store import FlinkStateKvStore
 from xfl.data.store.etcd_kv_store import EtcdSampleKvStore
@@ -77,6 +78,7 @@ class data_join_pipeline(object):
                inputfile_type: str = 'tfrecord',
                loaddata_parallelism: int = 0,
                client2multiserver: int = 1,
+               timer_delay_s: int = 30,
                conf: dict = {}):
     self._job_name = job_name
     env = get_flink_batch_env(conf)
@@ -104,6 +106,7 @@ class data_join_pipeline(object):
     log.info('sample_store_type: %s'%sample_store_type)
     log.info('db_root_path: %s'%db_root_path)
     log.info('client2multiserver num: %d'% client2multiserver)
+    log.info('timer_delay_s : %d'% timer_delay_s)
     log.info('inputfile_type: %s'% inputfile_type)
     log.info('========================================================')
     tls_crt = b''
@@ -127,8 +130,8 @@ class data_join_pipeline(object):
 
     if is_server:
       if use_psi:
-        if psi_type == 'rsa':
-          server_func = ServerPsiJoinFunc
+        if psi_type == 'rsa' or psi_type == 'rsa-unsafe':
+          server_func = ServerRsaJoinFunc
         elif psi_type == 'ecdh':
           server_func = ServerEcdhJoinFunc
         else:
@@ -153,6 +156,8 @@ class data_join_pipeline(object):
     else:
       if use_psi:
         if psi_type == 'rsa':
+          client_func = ClientRsaJoinFunc
+        elif psi_type == 'rsa-unsafe':
           client_func = ClientPsiJoinFunc
         elif psi_type == 'ecdh':
           client_func = ClientEcdhJoinFunc
@@ -178,7 +183,8 @@ class data_join_pipeline(object):
         tls_crt=tls_crt,
         client2multiserver=client2multiserver,
         inputfile_type=inputfile_type,
-        db_root_path=db_root_path),
+        db_root_path=db_root_path,
+        timer_delay_s=timer_delay_s),
         output_type=output_type) \
         .name(job_name + "_merge_sort_join_cli")
 

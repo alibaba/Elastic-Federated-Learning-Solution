@@ -58,3 +58,7 @@ We provide the introduction and usage of differential privacy algorithm in EFLS-
 We propose a feature fusion method based on horizontal aggregation and a feature fusion method based on hierarchical aggregation. Please refer to [documentation](./docs/efls-algo/algos.md)
 
 Users can design training algorithms according to their own needs for federated learning training.
+
+## Dataset Documentation
+We propose a benchmark for CVR estimation with vFL, to facilitate standardized and systematical evaluations for vFL algorithms. It contains a large-scale real world dataset collected from our advertising platform, as well as systematical evaluations for both effectiveness and privacy aspects of various neural network based vFL algorithms. Besides, we also explore to incorporate unaligned data in vFL to improve effectiveness, and develop perturbation operations to protect privacy well. We hope that future research work in vFL and CVR estimation benefits from our FedAds benchmark. Please refer to [documentation](./docs/efls-dataset/dataset.md)
+

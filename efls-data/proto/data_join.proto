@@ -59,6 +59,7 @@ service DataJoinService {
   rpc PsiSign(PsiSignRequest) returns (PsiSignResponse) {}
   rpc AcquireServerData(RequestServerOptions) returns (RequestServerRes) {}
   rpc SendServerSignedData(DataBlock) returns (Status) {}
+  rpc SendServerResData(DataBlock) returns (Status) {}
 }
 
 message RsaKey {

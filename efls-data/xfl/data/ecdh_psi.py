@@ -45,7 +45,8 @@ class ClientEcdhJoinFunc(ClientJoinFunc):
       client2multiserver: int = 1,
       inputfile_type: str = 'tfrecord',
       run_mode: RunMode = RunMode.LOCAL,
-      db_root_path='/tmp'):
+      db_root_path='/tmp',
+      timer_delay_s: int = 30):
     self._job_name = job_name
     self._bucket_num = bucket_num
     self._state = None
@@ -67,7 +68,7 @@ class ClientEcdhJoinFunc(ClientJoinFunc):
     log.info("EcdhPsi Client Init...")
     self._signer = EccSigner()
     self._state = runtime_context.get_state(ValueStateDescriptor(
-      "last_modified_time", Types.LONG()))
+      "last_modified_time", Types.PICKLED_BYTE_ARRAY()))
 
     self._subtask_index = runtime_context.get_index_of_this_subtask()
     #In c2ms mode, each client is corresponding to  #client2multiserver servers.

@@ -95,7 +95,7 @@ class ServerImpl {
 
     friend class ServerImpl;
   };
-
+  
   class SendMessageCallData final : public CallData<MessageRequest, MessageResponse> {
    public:
     SendMessageCallData(TrainerService::AsyncService* service, ServerCompletionQueue* cq, AnyMap* any_map);

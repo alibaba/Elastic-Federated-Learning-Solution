@@ -50,8 +50,6 @@ class DataIO(object):
                drop_remainder=False,
                name='dataio'):
     self._data_base_dir = data_base_dir
-    if self._data_base_dir.endswith("/"):
-      self._data_base_dir = self._data_base_dir[:-1]
     self._file_nodes = []
     self._feature_map = {}
     self._batch_size = batch_size
@@ -85,8 +83,6 @@ class DataIO(object):
     return file_list
 
   def _listdir_recursive(self, file_path):
-    if not file_path.endswith("/"):
-      file_path = file_path + "/"
     file_list = []
     for base_dir, _, filenames in gfile.Walk(file_path):
       file_list.extend([os.path.join(base_dir, f) for f in filenames])
@@ -242,15 +238,7 @@ class FederalDataIO(DataIO):
         file_node = os.path.join(self._data_base_dir, file_node)
         file_list.extend(self._listdir_recursive(file_node))
     # keep file name out of base dir
-    base_dir_len = len(self._data_base_dir) + 1
-    file_list_tmp = []
-    # for oss system: remove dir path, unique file list
-    for f in file_list:
-      if len(f) <= base_dir_len:
-        continue
-      else:
-        file_list_tmp.append(f[base_dir_len:])
-    file_list = list(set(file_list_tmp))
+    file_list = [f[len(self._data_base_dir) + 1:] for f in file_list]
     file_list.sort()
     return file_list
 

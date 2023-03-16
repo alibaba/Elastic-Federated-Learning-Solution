@@ -525,7 +525,7 @@ REGISTER_OP("CreateCommunicator")
     .Attr("peer_address: string")
     .Attr("scanning_interval_milliseconds: int = 30000")
     .Attr("default_timeout_milliseconds: int = 600000")
-    .SetShapeFn(shape_inference::NoOutputs)
+    .SetShapeFn(shape_inference::UnknownShape)
     .Doc(R"doc(
 Create a communicator to communicate with the peer worker.
 
@@ -573,7 +573,7 @@ REGISTER_OP("RequestConnection")
     .Input("communicator: resource")
     .Attr("client_thread_num: int = 1")
     .Attr("server_thread_num: int = 1")
-    .SetShapeFn(shape_inference::NoOutputs)
+    .SetShapeFn(shape_inference::UnknownShape)
     .Doc(R"doc(
 Create a connection between the peer workers.
 
@@ -607,7 +607,7 @@ REGISTER_OP("ResponseConnection")
     .Input("communicator: resource")
     .Attr("client_thread_num: int = 1")
     .Attr("server_thread_num: int = 1")
-    .SetShapeFn(shape_inference::NoOutputs)
+    .SetShapeFn(shape_inference::UnknownShape)
     .Doc(R"doc(
 Create a connection between the peer workers.
 
@@ -639,7 +639,7 @@ REGISTER_KERNEL_BUILDER(Name("ResponseConnection").Device(DEVICE_CPU), ResponseC
 
 REGISTER_OP("CloseConnection")
     .Input("communicator: resource")
-    .SetShapeFn(shape_inference::NoOutputs)
+    .SetShapeFn(shape_inference::UnknownShape)
     .Doc(R"doc(
 Close the connection between the peer workers.
 
@@ -661,15 +661,14 @@ class CloseConnectionOp : public OpKernel {
 REGISTER_KERNEL_BUILDER(Name("CloseConnection").Device(DEVICE_CPU), CloseConnectionOp);
 
 REGISTER_OP("SendTensor")
-    .Input("communicator: resource")
-    .Input("tensor: tensor_type")
-    .Input("step: int64")
-    .Attr("tensor_name: string")
-    .Attr("tensor_type: type")
-    .SetShapeFn(shape_inference::NoOutputs)
-    .Doc(R"doc(
+  .Input("communicator: resource")
+  .Input("tensor: tensor_type")
+  .Input("step: int64")
+  .Attr("tensor_name: string")
+  .Attr("tensor_type: type")
+  .SetShapeFn(shape_inference::UnknownShape)
+  .Doc(R"doc(
 Sends the named tensor to peer worker by communicator.
-
 communicator: Peer works communicate by this.
 tensor: The tensor to send.
 step: The tensor's update steps.
@@ -729,7 +728,6 @@ class ReceiveTensorOp : public AsyncOpKernel {
     OP_REQUIRES_OK_ASYNC(context, context->input("step", &step_tensor), done);
     auto step = static_cast<uint64>(step_tensor->flat<int64>()(0));
     communicator->Ref();
-    LOG(INFO) << "recv " + tensor_name_;
     communicator->ReceiveTensor(context, done, tensor_name_, step);
   }
 
@@ -740,11 +738,11 @@ class ReceiveTensorOp : public AsyncOpKernel {
 REGISTER_KERNEL_BUILDER(Name("ReceiveTensor").Device(DEVICE_CPU), ReceiveTensorOp);
 
 REGISTER_OP("RecvReaderState")
-    .Input("communicator: resource")
-    .Attr("dataset_name: string")
-    .Output("block_name: string")
-    .Output("sample_index: int64")
-    .SetShapeFn(shape_inference::ScalarShape);
+  .Input("communicator: resource")
+  .Attr("dataset_name: string")
+  .Output("block_name: string")
+  .Output("sample_index: int64")
+  .SetShapeFn(shape_inference::ScalarShape);
 
 class RecvReaderStateOp : public AsyncOpKernel {
  public:
@@ -770,11 +768,11 @@ class RecvReaderStateOp : public AsyncOpKernel {
 REGISTER_KERNEL_BUILDER(Name("RecvReaderState").Device(DEVICE_CPU), RecvReaderStateOp);
 
 REGISTER_OP("SendReaderState")
-    .Input("communicator: resource")
-    .Input("block_name: string")
-    .Input("sample_index: int64")
-    .Attr("dataset_name: string")
-    .SetShapeFn(shape_inference::NoOutputs);
+  .Input("communicator: resource")
+  .Input("block_name: string")
+  .Input("sample_index: int64")
+  .Attr("dataset_name: string")
+  .SetShapeFn(shape_inference::NoOutputs);
 
 class SendReaderStateOp : public AsyncOpKernel {
  public:
@@ -799,9 +797,9 @@ REGISTER_KERNEL_BUILDER(Name("SendReaderState").Device(DEVICE_CPU), SendReaderSt
 WHITELIST_STATEFUL_OP_FOR_DATASET_FUNCTIONS("SendReaderState");
 
 REGISTER_OP("TerminateReader")
-    .Input("communicator: resource")
-    .Attr("dataset_name: string")
-    .SetShapeFn(shape_inference::NoOutputs);
+  .Input("communicator: resource")
+  .Attr("dataset_name: string")
+  .SetShapeFn(shape_inference::NoOutputs);
 
 class TerminateReaderOp : public AsyncOpKernel {
  public:
@@ -824,9 +822,9 @@ REGISTER_KERNEL_BUILDER(Name("TerminateReader").Device(DEVICE_CPU), TerminateRea
 WHITELIST_STATEFUL_OP_FOR_DATASET_FUNCTIONS("TerminateReader");
 
 REGISTER_OP("RecvCkptVersion")
-    .Input("communicator: resource")
-    .Output("version: string")
-    .SetShapeFn(shape_inference::ScalarShape);
+  .Input("communicator: resource")
+  .Output("version: string")
+  .SetShapeFn(shape_inference::ScalarShape);
 
 class RecvCkptVersionOp : public AsyncOpKernel {
  public:
@@ -845,9 +843,9 @@ class RecvCkptVersionOp : public AsyncOpKernel {
 REGISTER_KERNEL_BUILDER(Name("RecvCkptVersion").Device(DEVICE_CPU), RecvCkptVersionOp);
 
 REGISTER_OP("SendCkptVersion")
-    .Input("communicator: resource")
-    .Input("version: string")
-    .SetShapeFn(shape_inference::NoOutputs);
+  .Input("communicator: resource")
+  .Input("version: string")
+  .SetShapeFn(shape_inference::NoOutputs);
 
 class SendCkptVersionOp : public AsyncOpKernel {
  public:

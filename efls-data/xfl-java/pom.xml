@@ -11,6 +11,29 @@
     <name>Elastic-Federated-Learning-Solution::Flink::TFRecord::Connector</name>
     <description>TBD</description>
 
+    <repositories>
+      <repository>
+           <id>central</id>
+           <name>aliyun</name>
+           <url>https://maven.aliyun.com/repository/central</url>
+           <releases>
+               <enabled>true</enabled>
+           </releases>
+           <snapshots>
+               <enabled>true</enabled>
+           </snapshots>
+           <layout>default</layout>
+      </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>central</id>
+            <url>https://maven.aliyun.com/repository/central</url>
+            <name>aliyun</name>
+        </pluginRepository>
+    </pluginRepositories>
+
     <developers>
     </developers>
 
@@ -34,7 +57,7 @@
         <target.java.version>1.8</target.java.version>
         <maven.compiler.source>${target.java.version}</maven.compiler.source>
         <maven.compiler.target>${target.java.version}</maven.compiler.target>
-        <flink.version>1.13.1</flink.version>
+        <flink.version>1.13.6</flink.version>
         <hadoop.version>2.4.1</hadoop.version>
         <tensorflow.version>1.14.0</tensorflow.version>
    </properties>

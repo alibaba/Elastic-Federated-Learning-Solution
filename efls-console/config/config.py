@@ -8,6 +8,7 @@ from console.constant import SERVICE_ENV, SERVICE_DEFAULT_ENV, SERVICE_DEFAULT_C
     SERVICE_HOST, SERVICE_CONFIG_MODULE, SERVICE_PORT, SERVICE_DEBUG, SERVICE_DEFAULT_HOST, SERVICE_DEFAULT_PORT, \
     SERVICE_DEFAULT_DEBUG, DB_CONFIG_MODULE, DB_SQLALCHEMY_URI, DB_DEFAULT_SQLALCHEMY_URI, SERVICE_BASE_URL, \
     SERVICE_DEFAULT_BASE_URL, SERVICE_LOG_LEVEL, SERVICE_DEFAULT_LOG_LEVEL, SERVICE_LOG_LEVEL_MAP, SERVICE_SECRET_KEY, \
+    SERVICE_DOMAIN, SERVICE_DEFAULT_DOMAIN, \
     DB_DEFAULT_SQLALCHEMY_TRACK_MODIFICATIONS, DB_DEFAULT_SQLALCHEMY_ECHO, DB_SQLALCHEMY_TRACK_MODIFICATIONS, \
     DB_SQLALCHEMY_ECHO, \
     MINIO_CONFIG_MODULE, MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
@@ -65,6 +66,10 @@ class _Config:
         self[SERVICE_BASE_URL] = service_url if service_url else \
             cf.get(SERVICE_CONFIG_MODULE, SERVICE_BASE_URL, fallback=None)
         logging.error(f'service_url is {self[SERVICE_BASE_URL]}')
+        service_domain = os.environ.get("DOMAIN", None)
+        self['SERVER_NAME'] = service_domain if service_domain else \
+            cf.get(SERVICE_CONFIG_MODULE, SERVICE_DOMAIN, fallback=None)
+        logging.error(f'service domain is {self["SERVER_NAME"]}')
 
         # database config
         db_host = os.environ.get(db_host_k8s_env, None)

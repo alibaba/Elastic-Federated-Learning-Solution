@@ -50,7 +50,7 @@ class Any {
     return !bool(base_ptr_);
   }
 
-  // Get content from Any as type T.
+  // Get content from Any as type U.
   template<typename T>
   T& Cast() {
     if (type_index_ != std::type_index(typeid(T))) { // Check type.

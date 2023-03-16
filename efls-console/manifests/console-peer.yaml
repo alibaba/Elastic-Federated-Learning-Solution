@@ -93,6 +93,8 @@ spec:
               value: peer
             - name: BASE-URL
               value: http://xxx/peer
+            - name: DOMAIN
+              value: 127.0.0.1:5001
           ports:
             - containerPort: 5001
           readinessProbe:

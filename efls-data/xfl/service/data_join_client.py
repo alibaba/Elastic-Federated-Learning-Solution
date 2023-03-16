@@ -140,7 +140,7 @@ class DataJoinClient(object):
       bucket_id += 1
     return True
 
-  @retry_fn(retry_times=10, needed_exceptions=[grpc.RpcError], retry_interval=0.2)
+  @retry_fn(retry_times=600, needed_exceptions=[grpc.RpcError], retry_interval=1)
   def sync_join(self, request_ids, bucket_id):
     join_res = None
     res = self._stub.SyncJoin(
@@ -156,6 +156,9 @@ class DataJoinClient(object):
       raise RuntimeError('Sync Join Error:%s' % str(res))
     return join_res
 
+  def add_checksum(self, ids, bucket_id):
+    self._checksumlist[bucket_id - self._init_bucket_id].add_list(ids)
+
   @retry_fn(retry_times=10, needed_exceptions=[grpc.RpcError], retry_interval=0.2)
   def sign_blinded_ids_from_server(self, request_ids, bucket_id):
     res = self._stub.PsiSign(
@@ -168,7 +171,7 @@ class DataJoinClient(object):
       log.error("Psi Sign Error:%s", str(res))
       raise RuntimeError('Psi Sign Error:%s' % str(res))
 
-  @retry_fn(retry_times=10, needed_exceptions=[grpc.RpcError], retry_interval=0.2)
+  @retry_fn(retry_times=1800, needed_exceptions=[Exception], retry_interval=1)
   def request_public_key_from_server(self, bucket_id):
     res = self._stub.GetRsaPublicKey(Empty(),
                                      metadata=(("servicename", '{}-{}'.format(self._job_name, bucket_id)), ("app", self._job_name)))
@@ -194,6 +197,14 @@ class DataJoinClient(object):
   def send_server_signed_data(self, data, block_id, bucket_id):
     data_block = data_join_pb2.DataBlock(block_id=block_id, data=data)
     status = self._stub.SendServerSignedData(data_block,
+                                     metadata=(("servicename", '{}-{}'.format(self._job_name, bucket_id)), ("app", self._job_name)))
+    if status.code != common_pb2.OK:
+      raise RuntimeError('send_server_signed_data error:%s'%status.message)
+    return True
+
+  def send_server_res_data(self, data, block_id, bucket_id):
+    data_block = data_join_pb2.DataBlock(block_id=block_id, data=data)
+    status = self._stub.SendServerResData(data_block,
                                      metadata=(("servicename", '{}-{}'.format(self._job_name, bucket_id)), ("app", self._job_name)))
     if status.code != common_pb2.OK:
       raise RuntimeError('send_server_signed_data error:%s'%status.message)

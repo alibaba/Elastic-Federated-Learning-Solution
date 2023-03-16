@@ -92,12 +92,11 @@ class ClientImpl {
   void RequestReaderState(const string& name, std::function<void(ReaderStateAsyncClientCall*)> callback);
   void RequestCheckpointVersion(std::function<void(CheckpointVersionAsyncClientCall*)> callback);
   void RequestConnection(std::function<void(ConnectionAsyncClientCall*)> callback);
+  // Loop that receives responses from server.
+  void AsyncCompleteRpc();
   bool Shutdown();
 
  private:
-  // Loop that receives responses from server.
-  void AsyncCompleteRpc();
-
   std::unique_ptr<TrainerService::Stub> stub_;
   CompletionQueue cq_;
   volatile bool is_running_ = false;

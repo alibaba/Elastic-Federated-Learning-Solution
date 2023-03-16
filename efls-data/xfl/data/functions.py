@@ -78,7 +78,8 @@ class ClientJoinFunc(KeyedProcessFunction):
           client2multiserver: int = 1,
           inputfile_type: str = 'tfrecord',
           run_mode: RunMode = RunMode.LOCAL,
-          db_root_path : str = '/tmp'):
+          db_root_path : str = '/tmp',
+          timer_delay_s: int = 30):
     pass
 
 class ClientBatchJoinFunc(ClientJoinFunc):
@@ -88,11 +89,11 @@ class ClientBatchJoinFunc(ClientJoinFunc):
   def __init__(self, job_name: str, peer_host: str, peer_ip: str, peer_port: int, bucket_num: int = 64,
                cmp_func=None, sample_store_cls=None, batch_size: int = 2048, wait_s: int = 1800,
                tls_crt: str = '', client2multiserver: int = 1, inputfile_type: str = 'tfrecord',
-               run_mode: RunMode = RunMode.LOCAL, db_root_path: str = ''):
+               run_mode: RunMode = RunMode.LOCAL, db_root_path: str = '', timer_delay_s: int = 30):
     self._job_name = job_name
     self._bucket_num = bucket_num
     self._state = None
-    self._delay = 10000
+    self._delay = timer_delay_s * 1000
     self._peer_host = peer_host
     self._peer_ip = peer_ip
     self._peer_port = peer_port
@@ -108,7 +109,7 @@ class ClientBatchJoinFunc(ClientJoinFunc):
 
   def open(self, runtime_context: RuntimeContext):
     self._state = runtime_context.get_state(ValueStateDescriptor(
-      "last_modified_time", Types.LONG()))
+      "last_modified_time", Types.PICKLED_BYTE_ARRAY()))
 
     self._subtask_index = runtime_context.get_index_of_this_subtask()
     self._initial_bucket = self._subtask_index * self._client2multiserver
@@ -191,11 +192,12 @@ class ClientSortJoinFunc(ClientJoinFunc):
           client2multiserver: int = 1,
           inputfile_type: str = 'tfrecord',
           run_mode: RunMode = RunMode.LOCAL,
-          db_root_path: str = '/tmp'):
+          db_root_path: str = '/tmp',
+          timer_delay_s: int = 30):
     self._job_name = job_name
     self._bucket_num = bucket_num
     self._state = None
-    self._delay = 10000
+    self._delay = timer_delay_s * 1000
     self._cmp_func = cmp_func
     self._sample_store_cls = sample_store_cls
     self._peer_host = peer_host
@@ -214,7 +216,7 @@ class ClientSortJoinFunc(ClientJoinFunc):
 
   def open(self, runtime_context: RuntimeContext):
     self._state = runtime_context.get_state(ValueStateDescriptor(
-      "last_modified_time", Types.LONG()))
+      "last_modified_time", Types.PICKLED_BYTE_ARRAY()))
     if self._sample_store_cls is DictSampleKvStore:
       self._sample_store = [DictSampleKvStore() for i in range(self._client2multiserver)]
     elif self._sample_store_cls is LevelDbKvStore:
@@ -298,14 +300,64 @@ class ClientPsiJoinFunc(ClientSortJoinFunc):
       inputfile_type: str = 'tfrecord',
       run_mode: RunMode = RunMode.LOCAL,
       db_root_path='/tmp'):
-    #The PSI version will be updated later
-    raise NotImplementedError('Method not implemented!')
+    super().__init__(
+        job_name,
+        peer_host,
+        peer_ip,
+        peer_port,
+        bucket_num,
+        cmp_func,
+        sample_store_cls,
+        batch_size,
+        wait_s,
+        tls_crt,
+        client2multiserver,
+        inputfile_type,
+        run_mode,
+        db_root_path)
 
   def open(self, runtime_context: RuntimeContext):
-    raise NotImplementedError('Method not implemented!')
+    return super().open(runtime_context)
 
   def on_timer(self, timestamp: int, ctx: 'KeyedProcessFunction.OnTimerContext'):
-    raise NotImplementedError('Method not implemented!')
+    s = self._state.value()
+    if timestamp >= s + self._delay:
+      client = create_data_join_client(host=self._peer_host,
+                                       ip=self._peer_ip,
+                                       port=self._peer_port,
+                                       job_name=self._job_name,
+                                       bucket_id=ctx.get_current_key(),
+                                       run_mode=self._run_mode,
+                                       tls_crt=self._tls_crt,
+                                       client2multiserver=self._client2multiserver)
+      client.wait_ready(timeout=self._wait_s)
+      for bucket_id in range (self._client2multiserver):
+        keys_to_join = sorted(self._sample_store[bucket_id].keys(), key=cmp_to_key(self._cmp_func))
+        now_bucket_id = self._initial_bucket + bucket_id
+        log.info("PSI Client Begin to fetch public key！")
+        pub_key_bytes = client.request_public_key_from_server(now_bucket_id)
+        self._rsa_signer = ClientRsaSigner(pub_key_bytes)
+        log.info("PSI Client Begin to fetch public key OK！")
+        log.info(
+          "PSI Client begin to join, bucket id:{}, all size:{}, unique size:{}".format(now_bucket_id, self.cnt[bucket_id], len(keys_to_join)))
+        cur = 0
+        while cur < len(keys_to_join):
+          end = min(cur + self._batch_size, len(keys_to_join))
+          request_ids = keys_to_join[cur:end]
+          signed_request_ids = self._rsa_signer.sign_func(request_ids, client, now_bucket_id)
+          existence = client.sync_join(signed_request_ids, now_bucket_id)
+          res_ids = utils.gather_res(request_ids, existence=existence)
+          cur = end
+          for i in res_ids:
+            if self._inputfile_type == 'tfrecord':
+              yield str(now_bucket_id), self._sample_store[bucket_id].get(i)
+            else :
+              yield str(now_bucket_id), self._sample_store[bucket_id].get(i).decode() + '\n'
+          log.info("client sync join current idx: {}, all: {}".format(cur, len(keys_to_join)))
+        self._sample_store[bucket_id].clear()
+      res = client.finish_join()
+      if not res:
+        raise ValueError("Join finish error")
 
 
 class ServerSortJoinFunc(KeyedProcessFunction):
@@ -321,11 +373,12 @@ class ServerSortJoinFunc(KeyedProcessFunction):
           inputfile_type: str = 'tfrecord',
           run_mode: RunMode = RunMode.LOCAL,
           db_root_path: str = '/tmp',
+          timer_delay_s: int = 30,
           **kwargs):
     self._job_name = job_name
     self._bucket_num = bucket_num
     self._state = None
-    self._delay = 10000
+    self._delay = timer_delay_s * 1000
     self._cmp_func = cmp_func
     self._sample_store_cls = sample_store_cls
     self._port = port
@@ -338,7 +391,7 @@ class ServerSortJoinFunc(KeyedProcessFunction):
 
   def open(self, runtime_context: RuntimeContext):
     self._state = runtime_context.get_state(ValueStateDescriptor(
-      "last_modified_time", Types.LONG()))
+      "last_modified_time", Types.PICKLED_BYTE_ARRAY()))
 
     if self._sample_store_cls is DictSampleKvStore:
       self._sample_store = DictSampleKvStore()
@@ -394,28 +447,3 @@ class ServerSortJoinFunc(KeyedProcessFunction):
       if self._run_mode == RunMode.K8S:
         k8s_resouce_handler.delete()
 
-
-class ServerPsiJoinFunc(ServerSortJoinFunc):
-  def __init__(
-          self,
-          job_name: str,
-          port: int = 50051,
-          bucket_num: int = 64,
-          cmp_func=record_cmp,
-          sample_store_cls=DictSampleKvStore,
-          batch_size: int = 2048,
-          wait_s: int = 1800,
-          inputfile_type: str = 'tfrecord',
-          run_mode: RunMode = RunMode.LOCAL,
-          db_root_path: str = '/tmp',
-          **kwargs):
-    raise NotImplementedError('Method not implemented!')
-
-  def open(self, runtime_context: RuntimeContext):
-    raise NotImplementedError('Method not implemented!')
-
-  def process_element(self, value, ctx: 'ProcessFunction.Context'):
-    raise NotImplementedError('Method not implemented!')
-
-  def on_timer(self, timestamp: int, ctx: 'KeyedProcessFunction.OnTimerContext'):
-    raise NotImplementedError('Method not implemented!')

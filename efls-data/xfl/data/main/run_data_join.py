@@ -86,7 +86,7 @@ if __name__ == '__main__':
                       help="True if this job use rsa-psi method.")
 
   parser.add_argument('--psi_type', type=str, default='rsa',
-                      choices=['rsa', 'ecdh'],
+                      choices=['rsa', 'ecdh', 'rsa-unsafe'],
                       help='psi join encrpytion type.')
 
   parser.add_argument('--need_sort', type=str_to_bool,
@@ -106,6 +106,9 @@ if __name__ == '__main__':
   parser.add_argument('--local_client', type=str, default='no',
                       choices=['local_no_tf', 'local', 'no'],
                       help='running client without pyflink')
+
+  parser.add_argument('--timer_delay_s', type=int, default=30,
+                      help='delay (s) for process fucntion timer service.')
 
   args = parser.parse_args()
   conf = {}
@@ -146,6 +149,7 @@ if __name__ == '__main__':
     inputfile_type=args.inputfile_type,
     loaddata_parallelism=args.loaddata_parallelism,
     client2multiserver=args.client2multiserver,
+    timer_delay_s=args.timer_delay_s,
     conf=conf)
   if args.job_plan_output_path:
     with open(args.job_plan_output_path, "w") as f:

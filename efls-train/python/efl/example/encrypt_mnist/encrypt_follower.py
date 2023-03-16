@@ -17,11 +17,10 @@ import os
 import numpy as np
 import tensorflow.compat.v1 as tf
 import efl
-from efl.lib import ops as fed_ops
 
 def input_fn(model, mode):
   if mode == efl.MODE.TRAIN:
-    dataio = efl.data.FederalDataIO("./leader_train", 256, model.communicator, model.federal_role, 0, 1, data_mode='local')
+    dataio = efl.data.FederalDataIO("./follower_train", 256, model.communicator, model.federal_role, 0, 1, data_mode='local')
     dataio.fixedlen_feature('sample_id', 1, dtype=tf.int64)
     dataio.fixedlen_feature('feature', 14*28, dtype=tf.float32)
     dataio.fixedlen_feature('label', 1, dtype=tf.float32)
@@ -29,7 +28,7 @@ def input_fn(model, mode):
     model.add_hooks([dataio.get_hook()])
     columns = {
       "label": [tf.feature_column.numeric_column('label', 1)],
-      "emb": [tf.feature_column.numeric_column('feature', 14*28)]}
+      "emb": [tf.feature_column.numeric_column('feature', 28*14)]}
     return efl.FederalSample(features, columns, model.federal_role, model.communicator, sample_id_name='sample_id')
 
 def model_fn(model, sample):
@@ -37,9 +36,8 @@ def model_fn(model, sample):
   fc1 = tf.layers.dense(input, 128,
     kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))
-  f_fc1 = model.recv('fc1', dtype=tf.float32, require_grad=True)
-  f_fc1 = tf.reshape(f_fc1, [-1, 128])
-  fc1 = tf.concat([fc1, f_fc1], axis=-1)
+  active_layer = efl.privacy.EncryptActiveLayer(model.communicator, 128, "public_key.json", "private_key.json", update_noise=False)
+  fc1 = active_layer(fc1)
   y = tf.layers.dense(
     fc1, 10, kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))

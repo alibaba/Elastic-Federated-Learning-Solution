@@ -18,4 +18,6 @@ RUN cd /tmp/efl && mkdir build && cd build && \
     pip install `find . -name "efl*.whl" -maxdepth 1` && \
     rm -rf tmp/efl
 
+ENV TF_CPP_MIN_LOG_LEVEL 2
+
 COPY ./efls-train/tools/cmd/ /efl/

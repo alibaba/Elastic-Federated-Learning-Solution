@@ -33,8 +33,8 @@ def input_fn(model, mode):
     return efl.FederalSample(features, columns, model.federal_role, model.communicator, sample_id_name='sample_id')
 
 def model_fn(model, sample):
-  inputs = sample['emb']
-  fc1 = tf.layers.dense(inputs, 128,
+  input = sample['emb']
+  fc1 = tf.layers.dense(input, 128,
     kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))
   model.send('fc1', fc1, True)
@@ -56,5 +56,5 @@ CTR.loss_fn(model_fn)
 CTR.optimizer_fn(efl.optimizer_fn.optimizer_setter(tf.train.GradientDescentOptimizer(0.001)))
 CTR.compile()
 CTR.fit(efl.procedure_fn.train(), 
-        log_step=100, 
+        log_step=1, 
         project_name="train")
