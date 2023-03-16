@@ -201,6 +201,8 @@ spec:
               value: host
             - name: BASE-URL
               value: http://xxx/host
+            - name: DOMAIN
+              value: 127.0.0.1:5000
           ports:
             - containerPort: 5000
           readinessProbe:

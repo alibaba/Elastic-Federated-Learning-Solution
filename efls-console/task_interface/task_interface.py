@@ -4,6 +4,7 @@ import time
 import os
 import re
 import json
+import shutil
 
 from console.models import TaskIntra, TaskInstance
 from console.task import TaskTypeEnum
@@ -33,6 +34,13 @@ class TaskInterface:
                 msg = f.read()
             stderr_dict[role] = msg
         return stdout_dict, stderr_dict
+
+    @staticmethod
+    def mv_task_log(log_dir, target_dir):
+        try:
+            shutil.move(log_dir, target_dir)
+        except Exception as e:
+            logger.info('move log to tmp failed, msg: {}'.format(e))
 
     @staticmethod
     def get_job_loglink(job_log):
@@ -116,10 +124,13 @@ class TaskInterface:
                     data_join_scheduler.kill_datajoin_job(task_config)
                     break
         elif task.type == TaskTypeEnum.TRAIN.value:
+            start_time_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
             try:
                 task_config = task.config
                 if isinstance(task_config, str):
                     task_config = json.loads(task_config)
+                if 'zk_addr' in task_config:
+                    task_config['zk_addr'] = os.path.join(task_config['zk_addr'], start_time_str)
                 logger.info(
                     msg=f'train type task run, task intra: {task.to_dict()}, instance: {instance.to_dict()}, '
                         f'resource_uri_list: {resource_uri_list}, task_instance_id: {task_instance_id}')
@@ -161,6 +172,7 @@ class TaskInterface:
                             stdout_dict, stderr_dict = TaskInterface.get_task_log(log_dir)
                             call_back(message=stdout_dict, error=stderr_dict)
                         trainer_scheduler.kill_train_job(task_config)
+                        TaskInterface.mv_task_log(log_dir, log_dir + "." + start_time_str)
                         break
                     elif trainer_scheduler.get_app_status(task_config) == \
                             trainer_scheduler.TrainerScheduler.AppStatus.Success:
@@ -173,14 +185,17 @@ class TaskInterface:
                             stdout_dict, stderr_dict = TaskInterface.get_task_log(log_dir)
                             call_back(message=stdout_dict, error=stderr_dict)
                         trainer_scheduler.kill_train_job(task_config)
+                        TaskInterface.mv_task_log(log_dir, log_dir + "." + start_time_str)
                         break
                 except KeyboardInterrupt:
                     trainer_scheduler.kill_train_job(task_config)
                     call_back(status=TaskInstanceStatusEnum.FAILED.value)
+                    TaskInterface.mv_task_log(log_dir, log_dir + "." + start_time_str)
                     break
                 except Exception as e:
                     trainer_scheduler.kill_train_job(task_config)
                     call_back(status=TaskInstanceStatusEnum.FAILED.value)
+                    TaskInterface.mv_task_log(log_dir, log_dir + "." + start_time_str)
                     break
 
     @staticmethod

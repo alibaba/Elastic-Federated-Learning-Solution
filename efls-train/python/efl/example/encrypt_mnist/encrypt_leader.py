@@ -17,7 +17,6 @@ import os
 import numpy as np
 import tensorflow.compat.v1 as tf
 import efl
-from efl.lib import ops as fed_ops
 
 def input_fn(model, mode):
   if mode == efl.MODE.TRAIN:
@@ -37,9 +36,9 @@ def model_fn(model, sample):
   fc1 = tf.layers.dense(input, 128,
     kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))
-  f_fc1 = model.recv('fc1', dtype=tf.float32, require_grad=True)
-  f_fc1 = tf.reshape(f_fc1, [-1, 128])
-  fc1 = tf.concat([fc1, f_fc1], axis=-1)
+  passive_layer = efl.privacy.EncryptPassiveLayer(model.communicator, 128, 128, "public_key.json")
+  fc1 = passive_layer(fc1)
+  fc1 = tf.reshape(fc1, [-1, 256])
   y = tf.layers.dense(
     fc1, 10, kernel_initializer=tf.truncated_normal_initializer(
       stddev=0.001, dtype=tf.float32))

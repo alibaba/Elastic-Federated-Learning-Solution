@@ -34,23 +34,17 @@ import time
 @exporter.export("Communicator")
 class Communicator(object):
 
-  def __init__(self, federal_role,
-               worker_index, worker_num,
-               peer_addr, local_addr,
-               client_thread_num=None,
-               server_thread_num=None,
-               scanning_interval_milliseconds=None,
-               default_timeout_milliseconds=None):
-    self._worker_index = worker_index
-    self._worker_num = worker_num
+  def __init__(self, federal_role, peer_addr, local_addr,
+               client_thread_num=None, server_thread_num=None,
+               scanning_interval_milliseconds=None, default_timeout_milliseconds=None):
     self._handler = fed_ops.communicator_handle_op()
     self._recv_set = set()
     self._dataset_set = set()
-    self._local_step = [variables.VariableV1(
+    self._local_step = variables.VariableV1(
         array_ops.constant(0, dtype=tf.int64),
         trainable=False,
         collections=[ops.GraphKeys.LOCAL_VARIABLES],
-        name='communicator_local_step_{}'.format(i)) for i in range(worker_num)]
+        name='communicator_local_step')
     self._recv_list_ph = array_ops.placeholder(tf.string, shape=[None], name='recv_map_ph')
     self._dataset_list_ph = array_ops.placeholder(tf.string, shape=[None], name='dataset_ph')
     self._create_op = fed_ops.create_communicator(self._handler,
@@ -75,18 +69,14 @@ class Communicator(object):
     self._version_ph = array_ops.placeholder(tf.string, shape=[], name='ckpt_version_ph')
     self._send_ckpt_op = fed_ops.send_ckpt_version(self._handler, self._version_ph)
     self._recv_ckpt_op = fed_ops.recv_ckpt_version(self._handler)
-    self._add_local_step = state_ops.assign_add(self._local_step[self._worker_index], 1)
+    self._add_local_step = state_ops.assign_add(self._local_step, 1)
 
   def send(self, name, tensor):
-    return fed_ops.send_tensor(self._handler, tensor, self._local_step[self._worker_index], name)
+    return fed_ops.send_tensor(self._handler, tensor, self._local_step, name)
 
-  def recv(self, name, shape=None, dtype=tf.float32):
+  def recv(self, name, dtype=tf.float32):
     self._recv_set.add(name)
-    t = fed_ops.receive_tensor(self._handler, self._local_step[self._worker_index], name, dtype)
-    if shape is None:
-      return t
-    else:
-      return tf.reshape(t, shape=shape)
+    return fed_ops.receive_tensor(self._handler, self._local_step, name, dtype)
 
   def send_ckpt_version(self, sess, version):
     sess.run(self._send_ckpt_op, feed_dict={self._version_ph: version})

@@ -35,9 +35,10 @@ def input_fn(model, mode):
 
 def model_fn(model, sample, is_training):
   if is_training:
-    embedding = model.recv('embedding_train', dtype=tf.float32, require_grad=True, shape=[-1, 168])
+    embedding = model.recv('embedding_train', dtype=tf.float32, require_grad=True)
   else:
-    embedding = model.recv('embedding_test', dtype=tf.float32, require_grad=False, shape=[-1, 168])
+    embedding = model.recv('embedding_test', dtype=tf.float32, require_grad=False)
+  embedding = tf.reshape(embedding, [-1, 168])
   inputs = tf.reshape(sample['dense'], [-1, 10])
   inputs = tf.concat([inputs, embedding], axis=1)
   labels = tf.cast(tf.squeeze(sample['label']), tf.int64)

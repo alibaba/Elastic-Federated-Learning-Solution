@@ -17,12 +17,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import enum
+import os
+import random
+import gmpy2
 
-MODE = enum.Enum('MODE', ('TRAIN', 'EVAL'))
+def powmod(a, b, c):
+  return int(gmpy2.powmod(a, b, c))
 
-STAGE_WAIT_RATIO = 'stage_wait_ratio'
-STAGE_TIMEOUT = 'stage_timeout'
-DEFAULT_STAGE_TIMEOUT = 600000 #millisecond
-STAGE_CHECK_INTERVAL = 10000 #millisecond
-COMPILE_ARGS = 'compile_args'
+
+def invert(a, b):
+  x = int(gmpy2.invert(a, b))
+  if x == 0:
+    raise ZeroDivisionError('invert(a, b) no inverse exists')
+  return x
+   
+   
+def getprimeover(n):
+  r = gmpy2.mpz(random.SystemRandom().getrandbits(n))
+  r = gmpy2.bit_set(r, n - 1)
+  return int(gmpy2.next_prime(r))

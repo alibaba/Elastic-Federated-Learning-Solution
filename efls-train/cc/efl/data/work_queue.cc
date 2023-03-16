@@ -69,16 +69,13 @@ class WorkQueue : public ResourceBase {
     take_cv_.wait(lock, [this]() { return !queue_.empty() || is_closed_; });
 
     if (TF_PREDICT_FALSE(queue_.empty() && is_closed_)) {
-      if (set_end_file_) {
-        output->scalar<string>().setConstant(EndFileDefaultName);
-        return Status::OK();
-      } else {
-        return Status(errors::OutOfRange(
-            strings::StrCat("All works in work queue ", name_, " are taken.")));
-      }
+      return Status(errors::OutOfRange(
+          strings::StrCat("All works in work queue ", name_, " are taken.")));
     }
+
     output->scalar<string>().setConstant(std::move(queue_.front()));
     queue_.pop_front();
+
     return Status::OK();
   }
 
@@ -97,6 +94,10 @@ class WorkQueue : public ResourceBase {
     for (int64 i = 0; i < num_works; ++i) {
       queue_.push_back(restorable.flat<string>()(i));
     }
+    if (set_end_file_) {
+      queue_.push_back(EndFileDefaultName);
+    }
+
     lock.unlock();
     take_cv_.notify_all();
     return Status::OK();
@@ -121,6 +122,10 @@ class WorkQueue : public ResourceBase {
 
     if (is_closed_) {
       return Status::OK();
+    }
+
+    if (set_end_file_) {
+      queue_.push_back(EndFileDefaultName);
     }
 
     is_closed_ = true;
