@@ -1,10 +1,10 @@
 # About Dataset
-| Dataset|  | 
-| :------: | :------: |
-| sample_train_aligned.tar.gz | [Download](../../efls-dataset/sample_train_aligned.tar.gz) |
-| sample_train_nonaligned.tar.gz | [Download](../../efls-dataset/sample_train_nonaligned.tar.gz) | 
-| sample_test | [Download](../../efls-dataset/sample_test.tar.gz) | 
-In order to get the dataset, you need to install the git LFS and git clone the whole EFLS project.
+| Dataset|   
+| :------: | 
+| sample_train_aligned.tar.gz|
+| sample_train_nonaligned.tar.gz | 
+| sample_test |  
+We release our data on tianchi platform, please download data by this [url](https://tianchi.aliyun.com/dataset/148347?spm=5176.12282013.0.0.1eed2f61qy5fB5)
 ## 1.Data Description
 The dataset is built upon the click log of our e-commerce ad delivery business, in which both the online publisher and the advertising platform belong to Alibaba Group. Although the two parties belong to the same company, they still cannot share user behavior information to each other. Specifically, the online publisher is a mobile app that contains ad positions. As shown in Figure, the advertising platform bids for ad impressions through real-time bidding, and for each traffic request the predicted CVR score is a key factor in the bid price. If an ad from the advertising platform wins a bid, it will be displayed to the user. The user will arrive at another e-commerce mobile app that manages the ad landing page if he/she clicks on the ad, and may take further behaviors such as add-to-wishlist and purchase.
 
