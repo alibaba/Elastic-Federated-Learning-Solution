@@ -4,13 +4,14 @@
 | sample_train_aligned.tar.gz|
 | sample_train_nonaligned.tar.gz |
 | sample_test |
+
 我们将数据集开源至天池，请通过 [链接](https://tianchi.aliyun.com/dataset/148347?spm=5176.12282013.0.0.1eed2f61qy5fB5) 进行下载。
 ## 1.数据描述
 本数据集基于阿里电商点击数据集进行采集，其中包含广告展现平台和电商平台两个角色。如下图所示，广告平台通过实时竞价系统决定广告是否展现，其中CVR预估是竞价过程中关键因子，衡量了用户转化价值。如果竞价成功广告则展现给用户，同时用户点击了广告，用户则进入电商平台，进行一系列收藏加购成交等后链路行为。
 
 ![picture](./pic.png)
 
-数据可描述为<img src="http://chart.googleapis.com/chart?cht=tx&chl= \{(x_{i} \rightarrow z_{i})\}|^{N}_{i=1}" style="border:none;">，其中N是样本总量，<img src="http://chart.googleapis.com/chart?cht=tx&chl= x_{i}" style="border:none;">代表样本的特征向量，通常是被划分为多个域的高维稀疏向量，包含用户域、商品域等。z为二值标签（0 or 1），其中z=1代表样本发生转化事件，由于业务归因分析的需要，转化事件被定义为由本次点击引导的转化事件。
+数据可描述为$\{(x_{i} \rightarrow z_{i})\}|^{N}_{i=1}$，其中N是样本总量，$x_i$ 代表样本的特征向量，通常是被划分为多个域的高维稀疏向量，包含用户域、商品域等。z为二值标签（0 or 1），其中z=1代表样本发生转化事件，由于业务归因分析的需要，转化事件被定义为由本次点击引导的转化事件。
 
 
 ## 2.样本构建
