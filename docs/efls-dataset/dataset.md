@@ -153,7 +153,12 @@ In order to facilitate the use, we have completed sample join process, you can u
 ## 3.Citation
 To acknowledge use of the dataset in publications, please cite the following paper:
 
-> ***.
+> @inproceedings{wei2023fedads,   
+    title={Fed{A}ds: {A} {B}enchmark for {P}rivacy-{P}reserving {CVR} {E}stimation with {V}ertical {F}ederated {L}earning},   
+    author={Wei, Penghui and Dou, Hongjian and Liu, Shaoguo and Tang, Rongjun and Liu, Li and Wang, Liang and Zheng, Bo},
+    booktitle={SIGIR 2023, Resource Track},   
+    year={2023} 
+}
 
 ## 4.License
 The dataset is distributed under the [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/?spm=5176.12282016.0.0.313e492c7xmVCT) license.
