@@ -143,7 +143,12 @@
 ## 3.引用说明
 在任何形式的出版物中声明使用本数据，应包含如下论文的引用信息：
 
-> ***.
+> @inproceedings{wei2023fedads,   
+    title={Fed{A}ds: {A} {B}enchmark for {P}rivacy-{P}reserving {CVR} {E}stimation with {V}ertical {F}ederated {L}earning},   
+    author={Wei, Penghui and Dou, Hongjian and Liu, Shaoguo and Tang, Rongjun and Liu, Li and Wang, Liang and Zheng, Bo},
+    booktitle={SIGIR 2023, Resource Track},   
+    year={2023} 
+}
 
 ## 4.协议
 该数据集遵循协议：[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/?spm=5176.12282016.0.0.313e492c7xmVCT).
