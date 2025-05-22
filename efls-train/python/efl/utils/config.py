@@ -27,6 +27,7 @@ from efl.service_discovery import service_discovery
 parser = argparse.ArgumentParser(description="efl arguments")
 parser.add_argument('-c', '--config', default=None)
 parser.add_argument('--ckpt_dir', default=None)
+parser.add_argument('--infer_dir', default=None)
 parser.add_argument('--app_id', default=None)
 parser.add_argument('--ps_num', default=0)
 parser.add_argument('--worker_num', default=1)
@@ -114,6 +115,10 @@ def get_ckpt_dir():
 @exporter.export('get_zk_addr')
 def get_zk_addr():
   return _CMD_ARGS.zk_addr
+
+@exporter.export('get_infer_dir')
+def get_infer_dir():
+  return _CMD_ARGS.infer_dir
 
 @exporter.export('local_mode')
 def local_mode():
