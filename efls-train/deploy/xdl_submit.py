@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
   with open(config_file, 'r') as f:
     config = json.load(f)
-  if job_args.federal:
+  if job_args.federal == 'True':
     task_scheduler = federal_task_scheduler
   else:
     task_scheduler = non_federal_task_scheduler

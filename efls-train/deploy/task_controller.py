@@ -94,6 +94,7 @@ class TrainerScheduler():
         body['spec']['template']['spec']['containers'][0]['name'] = job_name
         body['spec']['template']['metadata']['labels']['app'] = job_name
         body['spec']['template']['spec']['containers'][0]['resources']['requests']['cpu'] = core
+        # 若 pod 起不来，需要打开这个注释 kubectl get jobs 能查看job状态
         # body['spec']['template']['spec']['containers'][0]['resources']['limites']['cpu'] = core
         body['spec']['template']['spec']['containers'][0]['resources']['requests']['memory'] = memory
         # body['spec']['template']['spec']['containers'][0]['resources']['limites']['memory'] = memory
@@ -158,12 +159,15 @@ class TrainerScheduler():
                             namespace='default'):
         job_json = self._generate_scheduler_job_config(appid, job_config,
                                                        command, arguments)
-        self._controller.create_job(job_json, namespace=namespace)
-        time.sleep(20)
+        print(job_json)
+        res = self._controller.create_job(job_json, namespace=namespace)
+        print(res)
+        time.sleep(5)
         for i in range(worker_num):
             job_json = self._generate_worker_job_config(appid, i, job_config,
                                                         command, arguments)
             self._controller.create_job(job_json, namespace=namespace)
+            time.sleep(20)
             
         for i in range(ps_num):
             job_json = self._generate_ps_job_config(appid, i, job_config,

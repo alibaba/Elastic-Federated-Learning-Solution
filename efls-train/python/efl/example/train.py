@@ -31,7 +31,7 @@ def input_fn(model, mode):
           tf.feature_column.categorical_column_with_identity("sparse1", 1000), dimension=8, combiner='mean'),
         tf.feature_column.embedding_column(
           tf.feature_column.categorical_column_with_identity("sparse2", 1000), dimension=8, combiner='mean')]}
-    return efl.Sample(features, columns);
+    return efl.Sample(features, columns)
 
 def model_fn(model, sample):
   input = tf.concat([sample['deep'], sample['emb']], axis=1)
@@ -53,6 +53,7 @@ def model_fn(model, sample):
 CTR = efl.Model()
 CTR.input_fn(input_fn)
 CTR.loss_fn(model_fn)
+CTR.add_hooks([tf.train.CheckpointSaverHook(checkpoint_dir = "./data/efl-train/cvr/single-hooks", save_steps = 10)])
 CTR.optimizer_fn(efl.optimizer_fn.optimizer_setter(tf.train.GradientDescentOptimizer(0.01)))
 CTR.compile()
 CTR.fit(efl.procedure_fn.train(max_step=100), 

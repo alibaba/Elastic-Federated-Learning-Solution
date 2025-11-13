@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import datetime
 import os
 import json
 import time
@@ -44,9 +45,10 @@ class FederalTrainerScheduler(TrainerScheduler):
         #     body['spec']['template']['spec']['imagePullSecrets'] = [{'name': self._docker_secret}]
         #     body['spec']['template']['spec']['containers'][0]['imagePullPolicy'] = 'Always'
         body['spec']['template']['spec']['volumes'] = [{'name': 'oss-volume',
-                                                        'persistentVolumeClaim': {'claimName': "pvc-oss"}}]
+                                                        'persistentVolumeClaim': {'claimName': "oss-pvc"}}]
         body['spec']['template']['spec']['containers'][0]['volumeMounts'] = [
             {'name': 'oss-volume', 'mountPath': '/data-oss'}]
+        body['spec']['csi']['volumeAttributes'] = {'akId':'', 'akSecret':''}
         body['spec']['template']['spec']['containers'][0]['env'].append(
             {'name': 'CODE_DIR', 'value': get_config(job_config, 'code_dir', default='')})
         body['spec']['template']['spec']['containers'][0]['env'].append(
@@ -65,7 +67,7 @@ class FederalTrainerScheduler(TrainerScheduler):
         body['spec']['template']['spec']['containers'][0]['env'].append(
             {'name': 'FEDERAL_ROLE', 'value': get_config(job_config, 'federal_role', default='NULL')})
         body['spec']['template']['spec']['containers'][0]['env'].append(
-            {'name': 'ZK_ADDR', 'value': get_config(job_config, 'zk_addr')})
+            {'name': 'ZK_ADDR', 'value': get_config(job_config, 'zk_addr') + '/' + str(datetime.datetime.now())})
         body['spec']['template']['spec']['containers'][0]['env'].append(
             {'name': 'EFL_PEER_CERTS_FILENAME', 'value': self._cert_file})
         body['spec']['template']['spec']['containers'][0]['env'].append(
@@ -140,6 +142,28 @@ class FederalTrainerScheduler(TrainerScheduler):
             spec['tls'][0]['hosts'].append('{}.alifl.alibaba-inc.com'.format(self.worker_name(appid, i)))
         return metadata, spec
 
+    def _generate_alb_ingress_config(self, appid, worker_num):
+        metadata = {'name': self.ingress_name(appid),
+                    'annotations': {
+                        'alb.ingress.kubernetes.io/listen-ports': '[{"HTTP": 80},{"HTTPS": 443}]',
+                        'alb.ingress.kubernetes.io/ssl-redirect': "true",
+                        'alb.ingress.kubernetes.io/backend-protocol': "grpc"
+                    }
+                    }
+        spec = {'ingressClassName': 'alb', 'rules': [], 'tls': [{'secretName': self._ingress_cert_name, 'hosts': []}]}
+        for i in range(worker_num):
+            rule = {'host': '{}.alifl.alibaba-inc.com'.format(self.worker_name(appid, i)),
+                    'http': {'paths': [{'path': '/',
+                                        'pathType': 'Prefix',
+                                        'backend': {
+                                            'service': {
+                                                'name': '{}'.format(self.service_name(appid, i)),
+                                                'port': {'number': 80}
+                                            }}}]}}
+            spec['rules'].append(rule)
+            spec['tls'][0]['hosts'].append('{}.alifl.alibaba-inc.com'.format(self.worker_name(appid, i)))
+        return metadata, spec
+
     def _create_cluster_ingress(self, appid, worker_num, namespace='default'):
         metadata, spec = self._generate_ingress_config(appid, worker_num)
         self._controller.create_ingress(metadata, spec, namespace=namespace)
@@ -150,6 +174,7 @@ class FederalTrainerScheduler(TrainerScheduler):
         self._check_job_config(job_config)
         appid = get_config(job_config, 'appid')
         worker_num = get_config(job_config, 'worker', 'instance_num', default=1)
+        print(worker_num)
         ps_num = get_config(job_config, 'ps', 'instance_num', default=1)
         self._create_cluster_job(appid, worker_num, ps_num,
                                  job_config, command, arguments,

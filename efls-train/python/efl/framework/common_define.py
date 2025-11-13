@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import enum
 
-MODE = enum.Enum('MODE', ('TRAIN', 'EVAL'))
+MODE = enum.Enum('MODE', ('TRAIN', 'EVAL', 'PREDICT'))
 
 STAGE_WAIT_RATIO = 'stage_wait_ratio'
 STAGE_TIMEOUT = 'stage_timeout'
