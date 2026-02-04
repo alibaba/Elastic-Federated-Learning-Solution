@@ -182,6 +182,13 @@ class Model(object):
     else:
       return self._eval_ops[task]
 
+  def predict_op(self, task=None):
+    task = task if task else task_scope.current_task_scope().task
+    if task not in self._predict_ops:
+      raise ValueError('get predict_op failed for task:{}'.format(task))
+    else:
+      return self._predict_ops[task]
+
   def opt_to_vars(self, task=None):
     task = task if task else task_scope.current_task_scope().task
     if task not in self._opt_to_vars:
@@ -278,6 +285,25 @@ class Model(object):
     if task in self._eval_fns:
       raise ValueError("eval fn define twice for task:{}".format(task))
     self._eval_fns[task] = eval_fn
+    return self
+
+  def predict_fn(self, predict_fn, task=None):
+    r'''Define prediction model function, return predictions
+    Args:
+      predict_fn: construct predictions from a `Sample`, return prediction tensor or dict
+        function signature:
+          def predict_fn(model, sample):
+            ...
+            return prediction
+          params:
+            model: efl.Model instance
+            sample: efl.Sample instance
+      task: task_name, None for single task prediction
+    '''
+    task = task if task else task_scope.current_task_scope().task
+    if task in self._predict_fns:
+      raise ValueError("Predict function defined twice for task:{}".format(task))
+    self._predict_fns[task] = predict_fn
     return self
 
   def run_stage(self, name, stage_or_func, *args, **kwargs):
@@ -398,6 +424,14 @@ class Model(object):
               eval_op = self._eval_fns[task](self, eval_sample)
           if eval_op is not None:  
             self.add_eval_op(eval_op, task)
+
+      for task, predict_fn in self._predict_fns.items():
+        task_sample = self.input(MODE.PREDICT, task)
+        with ops.control_dependencies(task_sample.before_step_ops()):
+          with task_scope.task_scope(task=task, mode=MODE.PREDICT):
+            predictions = predict_fn(self, task_sample)
+            if predictions is not None:
+              self._predictions[task] = predictions
 
   def compile(self, **kwargs):
     r'''build model ops

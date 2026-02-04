@@ -16,8 +16,8 @@
 import os
 import numpy as np
 import tensorflow.compat.v1 as tf
-import efl
-from efl.lib import ops as fed_ops
+from python import efl
+from python.efl.lib import ops as fed_ops
 
 def input_fn(model, mode):
   if mode == efl.MODE.TRAIN:
@@ -30,7 +30,7 @@ def input_fn(model, mode):
     columns = {
       "label": [tf.feature_column.numeric_column('label', 1)],
       "emb": [tf.feature_column.numeric_column('feature', 14*28)]}
-    return efl.FederalSample(features, columns, model.federal_role, model.communicator, sample_id_name='sample_id')
+    return efl.Sample(features, columns, model.federal_role, model.communicator, sample_id_name='sample_id')
 
 def model_fn(model, sample):
   inputs = sample['emb']
@@ -51,9 +51,10 @@ def model_fn(model, sample):
   loss = tf.losses.softmax_cross_entropy(label, y)
   return loss
 
-CTR = efl.FederalModel()
+CTR = efl.Model()
 CTR.input_fn(input_fn)
 CTR.loss_fn(model_fn)
+CTR.add_hooks([tf.train.CheckpointSaverHook(checkpoint_dir = "/data/efl-train/cvr/leader-hooks", save_steps = 100)])
 CTR.optimizer_fn(efl.optimizer_fn.optimizer_setter(tf.train.GradientDescentOptimizer(0.001)))
 CTR.compile()
 CTR.fit(efl.procedure_fn.train(), 

@@ -37,10 +37,10 @@ def init_data():
                 }))
         writer.write(example.SerializeToString())
       writer.close()
-  build_tfrecord("./leader_train", 6000, x_train_leader, y_train, file_num=10)
-  build_tfrecord("./follower_train", 6000, x_train_follower, y_train, file_num=10)
-  build_tfrecord("./leader_test", 1000, x_test_leader, y_test, file_num=10)
-  build_tfrecord("./follower_test", 1000, x_test_follower, y_test, file_num=10)
+  build_tfrecord("./leader_train1", 6000, x_train_leader, y_train, file_num=10)
+  build_tfrecord("./follower_train1", 6000, x_train_follower, y_train, file_num=10)
+  build_tfrecord("./leader_test1", 1000, x_test_leader, y_test, file_num=10)
+  build_tfrecord("./follower_test1", 1000, x_test_follower, y_test, file_num=10)
 
 
 if __name__ == '__main__':
