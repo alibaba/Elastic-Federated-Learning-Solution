@@ -60,10 +60,46 @@ def to_bytes(v):
   return str(v).encode('utf-8')
 
 
+def _escape_sample_store_component(value):
+  value = to_bytes(value)
+  if b'\\' in value:
+    value = value.replace(b'\\', b'\\\\')
+  if b'#' in value:
+    value = value.replace(b'#', b'\\#')
+  return value
+
+
 def get_sample_store_key(hash_col_value, sort_col_value: int):
-  return to_bytes(hash_col_value) + b'#' + to_bytes(sort_col_value)
+  return (_escape_sample_store_component(hash_col_value) + b'#' +
+          _escape_sample_store_component(sort_col_value))
+
+
+def _find_unescaped_separator(sample_store_key, end=None):
+  end = len(sample_store_key) if end is None else end
+  separator = sample_store_key.rfind(b'#', 0, end)
+  while separator >= 0:
+    backslashes = 0
+    index = separator - 1
+    while index >= 0 and sample_store_key[index] == ord('\\'):
+      backslashes += 1
+      index -= 1
+    if backslashes % 2 == 0:
+      return separator
+    separator = sample_store_key.rfind(b'#', 0, separator)
+  return -1
+
+
+def _unescape_sample_store_component(value):
+  if b'\\' not in value:
+    return value
+  return value.replace(b'\\#', b'#').replace(b'\\\\', b'\\')
 
 
 def split_sample_store_key(sample_store_key: bytes):
-  t = sample_store_key.split(b'#')
-  return t
+  separator = _find_unescaped_separator(sample_store_key)
+  if separator < 0 or _find_unescaped_separator(sample_store_key, separator) >= 0:
+    raise ValueError('invalid sample store key')
+  return [
+    _unescape_sample_store_component(sample_store_key[:separator]),
+    _unescape_sample_store_component(sample_store_key[separator + 1:]),
+  ]
