@@ -16,6 +16,7 @@
 
 import unittest
 from xfl.data import utils
+from xfl.data.utils import get_sample_store_key, split_sample_store_key
 
 
 class TestUtils(unittest.TestCase):
@@ -28,4 +29,16 @@ class TestUtils(unittest.TestCase):
         existence = [False] * len(ids)
         res = utils.gather_res(ids, existence)
         self.assertEqual(res,[])
+
+    def test_sample_store_key_round_trips_delimiters_and_escapes(self):
+        self.assertEqual(get_sample_store_key(b"customer", 42), b"customer#42")
+        hash_value = b"customer#segment\\#tail"
+        sort_value = b"event#time\\slot"
+        key = get_sample_store_key(hash_value, sort_value)
+        self.assertEqual(split_sample_store_key(key), [hash_value, sort_value])
+
+        first = get_sample_store_key(b"a#", b"b")
+        second = get_sample_store_key(b"a", b"#b")
+        self.assertNotEqual(first, second)
+        self.assertEqual(split_sample_store_key(first), [b"a#", b"b"])
 
